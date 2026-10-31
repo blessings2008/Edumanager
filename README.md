@@ -1,30 +1,52 @@
 # EduManager
 
-EduManager is a school-management platform being designed for schools in Malawi, with an architecture that can support schools in other markets later.
+EduManager is a Malawi-first school management platform, designed to support multiple schools while keeping each school's records private and separate.
 
-The product will bring school administration, academic records, fees, attendance, examinations, results, and school-community access into one dependable system.
+The product is being built to bring school administration, academic records, attendance, examinations, results, fees and school-community access into one dependable system.
 
 ## Project status
 
-**Stage:** Foundation / product definition  
-**Implementation status:** Not yet started  
+**Stage:** Application foundation  
 **Primary market:** Malawi  
-**Initial delivery target:** A secure multi-school web platform
+**Initial delivery target:** Secure multi-school web platform
 
-See [Product Vision](docs/PRODUCT_VISION.md), [Architecture](docs/ARCHITECTURE.md), and [Roadmap](docs/ROADMAP.md).
+## Repository structure
+
+- apps/web — React + TypeScript web application
+- apps/api — Fastify + TypeScript API
+- packages/contracts — shared API and domain types
+- docs — product, architecture, security and delivery documentation
 
 ## Core principles
 
-- Each school owns and controls its own tenant data.
-- Staff, students, and guardians only see information they are authorised to access.
-- School-specific portals must use readable URLs; custom domains are a planned capability.
+- Each school is a separate tenant; school data must never leak across tenants.
+- Staff, students and guardians only see information they are authorised to access.
+- School portals should have readable school-specific URLs; verified custom domains are planned.
 - Academic and financial records must be auditable.
-- Mobile-first, low-bandwidth-aware user experience.
-- No feature is considered complete until it has meaningful tests and documented acceptance criteria.
+- Mobile-first and low-bandwidth-aware user experience.
+- No feature is complete without meaningful tests and documented acceptance criteria.
 
-## Development
+## Local development
 
-The initial foundation is being documented before application code is introduced. This avoids locking the project into an unsuitable data model or security design.
+Requirements: Node.js 22.12+ and pnpm 10+.
+
+1. Copy .env.example to .env.
+2. Install dependencies with pnpm install.
+3. Start both applications with pnpm dev.
+4. Web app: http://localhost:5173
+5. API health: http://localhost:4000/health
+
+## Important architecture note
+
+The database, ORM and migration strategy are intentionally not wired in yet. We will confirm the database and hosting choices before creating the production data model. Tenant isolation will be enforced in the API and database, not only in the frontend.
+
+## Documentation
+
+- docs/PRODUCT_VISION.md
+- docs/ARCHITECTURE.md
+- docs/SECURITY_MODEL.md
+- docs/ROADMAP.md
+- docs/IMPLEMENTATION_STATUS.md
 
 ## License
 
