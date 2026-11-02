@@ -23,5 +23,5 @@ test("rejects malformed host values and invalid slugs", () => {
   assert.deepEqual(resolveTenantHost("https://north-high.schools.example.com/path", domain), { kind: "unmatched" });
   assert.deepEqual(resolveTenantHost("-north.schools.example.com", domain), { kind: "unmatched" });
   assert.deepEqual(resolveTenantHost("north-.schools.example.com", domain), { kind: "unmatched" });
-  assert.deepEqual(resolveTenantHost("north.schools.example.com:443", domain), { kind: "unmatched" });
+  assert.deepEqual(resolveTenantHost("north.schools.example.com:443", domain), { kind: "unmatched" });\n  assert.deepEqual(resolveTenantHost("north.schools.example.com:80", domain), { kind: "unmatched" });\n  assert.deepEqual(resolveTenantHost("north\\\\schools.example.com", domain), { kind: "unmatched" });\n  assert.deepEqual(resolveTenantHost("north%2eschools.example.com", domain), { kind: "unmatched" });\n  assert.deepEqual(resolveTenantHost("north schools.example.com", domain), { kind: "unmatched" });
 });
