@@ -52,3 +52,16 @@ The first coarse role-permission matrix is also defined:
 - Students and guardians receive only a generic self-portal permission at this stage.
 
 Important: a role grant is not sufficient to expose a specific student's record. Guardian-student relationships, teacher-class assignments and student-self identity must be checked separately on each relevant resource. The current policy is a starting baseline for review, not a complete production authorization system.
+
+
+## Trusted tenant context and resource relationships
+
+The API policy package now provides a context builder that accepts an authenticated user ID plus server-loaded user, school and membership records. It returns a tenant context only when the user, school and membership are all active and their IDs agree. A context must never be constructed from a client-supplied school or membership ID alone.
+
+Student-record checks now match relationship records against all relevant identifiers:
+- Guardian link: active status, guardian user ID, student user ID and school ID must all match.
+- Teacher assignment: active status, teacher user ID, student user ID and school ID must all match.
+- Student self-access: authenticated user ID must equal the student user ID.
+- Admin/staff access: the role must hold the corresponding student permission.
+
+These functions accept relationship collections supplied by trusted server-side, tenant-scoped data queries. They do not perform database queries themselves. Production route middleware and database-backed relationship repositories remain future work.

@@ -1,6 +1,6 @@
 # Implementation status
 
-## Current milestone: authorization policy foundation
+## Current milestone: trusted tenant context and resource relationships
 
 ### Added
 - pnpm workspace for the web app, API and shared contracts.
@@ -11,20 +11,21 @@
 - A pure platform-subdomain resolver with tests for valid slugs, platform hosts, malformed hosts, nested subdomains and unrelated domains.
 - Tenancy and identity security documentation covering request resolution, membership-scoped roles, custom-domain verification and data isolation.
 - Shared fail-closed membership validation requiring an active user, school and matching active membership.
+- Trusted tenant-context builder that emits context only from matching active authentication, school and membership records.
 - A first coarse role-permission matrix for school administrators, staff, teachers, students and guardians.
-- Authorization tests for mismatched identities, wrong-school memberships, inactive states and role boundaries.\n- Resource-level student-record access policy: students are limited to their own record, guardians require a verified guardian link, teachers require a verified teaching assignment, and staff/admin access follows explicit permissions.\n- Hardened hostname parsing that rejects explicit ports (including default port 80), URL syntax, escapes, malformed labels and invalid host characters.
+- Authorization tests for mismatched identities, wrong-school memberships, inactive states and role boundaries.\n- Resource-level student-record access policy that verifies guardian and teacher relationships against actor, student, school and active status.\n- Hardened hostname parsing that rejects explicit ports (including default port 80), URL syntax, escapes, malformed labels and invalid host characters.
 - GitHub Actions workflow for tests, type-checking and builds.
 
 ### Deliberately not added yet
 - Database ORM or migrations.
 - Authentication/session storage.
 - Tenant resolution middleware wired into requests.
-- Database-backed relationship lookups for guardian/student and teacher/class access (the policy accepts trusted relationship results but does not query a database).
+- Database-backed repositories and queries for guardian/student and teacher/class relationships.
 - Database-backed custom-domain lookup.
 - Student, staff, class, academic or finance persistence.
 - Production deployment configuration.
 
-The recommended relational foundation remains PostgreSQL, but the provider and hosting decision has not been confirmed. No provider-specific code or schema has been committed. The hostname resolver is not an authentication mechanism. The shared membership and permission functions are policy building blocks, not yet wired into route middleware. School data routes must wait for trusted authentication, resource-level relationship checks and tenant-scoped persistence.
+The recommended relational foundation remains PostgreSQL, but the provider and hosting decision has not been confirmed. No provider-specific code or schema has been committed. The hostname resolver is not an authentication mechanism. The shared membership, context and permission functions are policy building blocks, not yet wired into route middleware. School data routes must wait for trusted authentication, resource-level relationship checks and tenant-scoped persistence.
 
 ## Local development
 Requirements: Node.js 22.12+ and pnpm 10+.
