@@ -5,13 +5,14 @@ export type TenantHostResolution =
 
 function normalizeHostname(value: string): string | null {
   const candidate = value.trim().toLowerCase().replace(/\.$/, "");
-  if (!candidate || candidate.includes("/") || candidate.includes("@")) return null;
-  try {
-    const url = new URL("http://" + candidate);
-    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
-    if (url.port) return null;
-    return url.hostname;
-  } catch { return null; }
+  // Host values are hostnames only: reject schemes, ports, paths, escapes,
+  // whitespace, backslashes and other URL syntax before parsing any tenant.
+  if (!candidate || !/^[a-z0-9.-]+$/.test(candidate)) return null;
+  if (candidate.startsWith(".") || candidate.endsWith(".") || candidate.includes("..")) return null;
+  const labels = candidate.split(".");
+  if (labels.some((label) => !label || label.length > 63
+    || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))) return null;
+  return candidate;
 }
 
 /**

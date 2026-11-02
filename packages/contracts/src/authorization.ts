@@ -62,3 +62,44 @@ export function isActiveSchoolMember(input: MembershipAccessInput): boolean {
     && membership.userId === input.authenticatedUserId
     && membership.schoolId === input.requestedSchoolId;
 }
+
+
+export interface StudentRecordAccessInput {
+  role: SchoolRole;
+  actorUserId: string;
+  studentUserId: string;
+  action: "read" | "write";
+  /** Must come from a trusted, school-scoped relationship lookup. */
+  isGuardianOfStudent: boolean;
+  /** Must come from a trusted, school-scoped teaching-assignment lookup. */
+  isTeacherAssignedToStudent: boolean;
+}
+
+/**
+ * Resource-level gate for an individual student record.
+ * Call only after tenant membership and coarse permission checks.
+ * Relationship flags must be computed server-side, never accepted from request input.
+ */
+export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
+  if (!input.actorUserId || !input.studentUserId) return false;
+
+  if (input.role === "school_admin" || input.role === "school_staff") {
+    return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
+  }
+
+  if (input.action !== "read") return false;
+
+  if (input.role === "student") {
+    return input.actorUserId === input.studentUserId;
+  }
+
+  if (input.role === "guardian") {
+    return input.isGuardianOfStudent;
+  }
+
+  if (input.role === "teacher") {
+    return input.isTeacherAssignedToStudent;
+  }
+
+  return false;
+}

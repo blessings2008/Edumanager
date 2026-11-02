@@ -12,14 +12,14 @@
 - Tenancy and identity security documentation covering request resolution, membership-scoped roles, custom-domain verification and data isolation.
 - Shared fail-closed membership validation requiring an active user, school and matching active membership.
 - A first coarse role-permission matrix for school administrators, staff, teachers, students and guardians.
-- Authorization tests for mismatched identities, wrong-school memberships, inactive states and role boundaries.
+- Authorization tests for mismatched identities, wrong-school memberships, inactive states and role boundaries.\n- Resource-level student-record access policy: students are limited to their own record, guardians require a verified guardian link, teachers require a verified teaching assignment, and staff/admin access follows explicit permissions.\n- Hardened hostname parsing that rejects explicit ports (including default port 80), URL syntax, escapes, malformed labels and invalid host characters.
 - GitHub Actions workflow for tests, type-checking and builds.
 
 ### Deliberately not added yet
 - Database ORM or migrations.
 - Authentication/session storage.
 - Tenant resolution middleware wired into requests.
-- Resource-level relationship checks for guardian/student, teacher/class and student/self access.
+- Database-backed relationship lookups for guardian/student and teacher/class access (the policy accepts trusted relationship results but does not query a database).
 - Database-backed custom-domain lookup.
 - Student, staff, class, academic or finance persistence.
 - Production deployment configuration.
