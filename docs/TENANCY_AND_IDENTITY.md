@@ -40,3 +40,15 @@ The API will include a pure resolver for platform subdomains and tests. It is no
 - Hostname spoofing and unverified custom domains are rejected.
 - Database constraints prevent cross-school foreign-key relationships.
 - Authorization and privileged access are audit logged.
+
+## Initial authorization policy
+
+The shared contracts package now contains a fail-closed membership check. It requires an active user, active school, active membership, and exact agreement between the authenticated user, requested school and membership record.
+
+The first coarse role-permission matrix is also defined:
+- School administrators manage school settings, users and core school operations.
+- School staff handle approved day-to-day student, attendance, academic and finance-read workflows.
+- Teachers work with academic and attendance workflows, but cannot manage users or school finance.
+- Students and guardians receive only a generic self-portal permission at this stage.
+
+Important: a role grant is not sufficient to expose a specific student's record. Guardian-student relationships, teacher-class assignments and student-self identity must be checked separately on each relevant resource. The current policy is a starting baseline for review, not a complete production authorization system.
