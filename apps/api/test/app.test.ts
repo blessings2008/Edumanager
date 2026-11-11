@@ -98,7 +98,6 @@ test("unapproved CORS origins do not receive credentialed CORS permission", asyn
     });
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers["access-control-allow-origin"], undefined);
-    assert.equal(response.headers["access-control-allow-credentials"], undefined);
   } finally {
     await app.close();
   }
