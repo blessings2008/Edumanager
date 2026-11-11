@@ -16,6 +16,7 @@ The product is being built to bring school administration, academic records, att
 - apps/api — Fastify + TypeScript API
 - packages/contracts — shared API and domain types
 - docs — product, architecture, security and delivery documentation
+- supabase/migrations — versioned database schema changes
 
 ## Core principles
 
@@ -36,9 +37,13 @@ Requirements: Node.js 22.12+ and pnpm 10+.
 4. Web app: http://localhost:5173
 5. API health: http://localhost:4000/health
 
-## Important architecture note
+## Database
 
-The database, ORM and migration strategy are intentionally not wired in yet. We will confirm the database and hosting choices before creating the production data model. Tenant isolation will be enforced in the API and database, not only in the frontend.
+EduManager's initial database is hosted on Supabase (PostgreSQL 17). The first migration establishes global user records, schools, school memberships, verified-domain records and audit-event scaffolding.
+
+The initial tables have Row Level Security enabled and no browser-role policies or grants. This is deliberate: application access must not be enabled until authentication and tenant-scoped authorization are implemented and tested. Never put a Supabase service-role key or database password in browser code or commit either secret.
+
+See [docs/DATABASE.md](docs/DATABASE.md) for the current schema and integration boundary.
 
 ## Documentation
 
@@ -47,6 +52,7 @@ The database, ORM and migration strategy are intentionally not wired in yet. We 
 - docs/SECURITY_MODEL.md
 - docs/ROADMAP.md
 - docs/IMPLEMENTATION_STATUS.md
+- docs/DATABASE.md
 
 ## License
 
