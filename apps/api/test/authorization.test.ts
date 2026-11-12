@@ -81,6 +81,9 @@ test("student records do not require or embed a login user", () => {
   assert.equal(canAccessStudentRecord({
     ...accessBase, role: "student", actorUserId: "student-a",
   }), false, "a student portal login must have an explicit active account link");
+  assert.equal(canAccessStudentRecord({
+    ...accessBase, role: "student", actorUserId: " ",
+  }), false, "blank actor identifiers must fail closed");
 });
 
 test("student self-access requires an active, exact, school-scoped optional account link", () => {
