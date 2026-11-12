@@ -25,7 +25,7 @@ function quotedValues(source: string): string[] {
 
 function addedConstraintValues(constraint: string, field: string): string[] {
   const pattern = new RegExp(
-    "ADD CONSTRAINT " + constraint + " CHECK \\(" + field + " IN \\(([^)]*)\\)\\)",
+    "ADD CONSTRAINT " + constraint + "\\s+CHECK \\(" + field + " IN \\(([^)]*)\\)\\)",
     "i",
   );
   const match = alignmentMigration.match(pattern);
