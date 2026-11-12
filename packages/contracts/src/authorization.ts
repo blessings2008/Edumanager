@@ -152,11 +152,14 @@ export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean
     return input.teacherAssignments.some((assignment) =>
       assignment.status === "active" && assignment.schoolId === input.schoolId
       && assignment.teacherUserId === input.actorUserId
+      && assignment.classId.length > 0
       && assignment.subjectId.length > 0
+      && assignment.academicPeriodId.length > 0
       && input.studentEnrolments.some((enrolment) =>
         enrolment.status === "active" && enrolment.schoolId === input.schoolId
         && enrolment.studentId === input.studentId
-        && enrolment.classId === assignment.classId
+        && enrolment.classId.length > 0 && enrolment.classId === assignment.classId
+        && enrolment.academicPeriodId.length > 0
         && enrolment.academicPeriodId === assignment.academicPeriodId));
   }
 
