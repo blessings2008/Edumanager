@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   buildTenantRequestContext, canAccessStudentRecord, hasSchoolPermission, isActiveSchoolMember,
 } from "../../../packages/contracts/src/authorization.js";
-import { SCHOOL_ROLES, type StudentRecordIdentity } from "../../../packages/contracts/src/identity.js";
+import { SCHOOL_ROLES, type SchoolRole, type StudentRecordIdentity } from "../../../packages/contracts/src/identity.js";
 
 const activeMembership = {
   authenticatedUserId: "user-a",
@@ -31,6 +31,20 @@ test("fails closed when user, school or membership identifiers are blank", () =>
   assert.equal(isActiveSchoolMember({ ...activeMembership, requestedSchoolId: "" }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, userId: " " } }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, schoolId: "" } }), false);
+});
+test("rejects unknown school roles and invalid resource actions at runtime", () => {
+  assert.equal(isActiveSchoolMember({
+    ...activeMembership,
+    membership: { ...activeMembership.membership, role: "platform_owner" as SchoolRole },
+  }), false);
+  assert.equal(hasSchoolPermission("toString" as SchoolRole, "school:read"), false);
+
+  const base = {
+    actorUserId: "admin-a", schoolId: "school-a", studentId: "student-a",
+    studentPortalAccountLinks: [], guardianRelationships: [], teacherAssignments: [], studentEnrolments: [],
+    role: "school_admin" as const,
+  };
+  assert.equal(canAccessStudentRecord({ ...base, action: "delete" as never }), false);
 });
 test("fails closed when the user or school is not active", () => {
   assert.equal(isActiveSchoolMember({ ...activeMembership, userStatus: "disabled" }), false);
