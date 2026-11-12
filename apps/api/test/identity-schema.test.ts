@@ -63,6 +63,7 @@ test("alignment migration school and membership constraints match the shared con
 test("school-domain kinds match the shared contracts and are never guessed for existing rows", () => {
   assert.deepEqual(addedConstraintValues("school_domains_kind_check", "kind"), [...SCHOOL_DOMAIN_KINDS].sort());
   assert.match(alignmentMigration, /IF EXISTS \(SELECT 1 FROM public\.school_domains\) THEN[\s\S]*RAISE EXCEPTION/i);
+  assert.ok(alignmentMigration.indexOf("DO $migration$") < alignmentMigration.indexOf("ALTER TABLE public.users"));
 });
 
 test("database columns required by user and school identity contracts exist", () => {
