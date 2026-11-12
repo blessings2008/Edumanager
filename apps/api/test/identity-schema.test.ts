@@ -54,6 +54,7 @@ test("initial user and domain verification values match the shared contracts", (
 });
 
 test("alignment migration school and membership constraints match the shared contracts", () => {
+  assert.match(alignmentMigration, /ALTER COLUMN status SET DEFAULT 'provisioning'/i);
   assert.deepEqual(addedConstraintValues("schools_status_check", "status"), [...SCHOOL_STATUSES].sort());
   assert.deepEqual(addedConstraintValues("school_memberships_role_check", "role"), [...SCHOOL_ROLES].sort());
   assert.deepEqual(addedConstraintValues("school_memberships_status_check", "status"), [...MEMBERSHIP_STATUSES].sort());
