@@ -122,7 +122,10 @@ test("teacher access requires an active class/subject/period assignment and matc
   assert.equal(canAccessStudentRecord({ ...base, teacherAssignments: [{ ...assignment, teacherUserId: "another-teacher" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, teacherAssignments: [{ ...assignment, schoolId: "school-b" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, teacherAssignments: [{ ...assignment, status: "ended" }] }), false);
+  assert.equal(canAccessStudentRecord({ ...base, teacherAssignments: [{ ...assignment, classId: "" }] }), false);
+  assert.equal(canAccessStudentRecord({ ...base, teacherAssignments: [{ ...assignment, academicPeriodId: "" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, studentEnrolments: [{ ...enrolment, classId: "class-b" }] }), false);
+  assert.equal(canAccessStudentRecord({ ...base, studentEnrolments: [{ ...enrolment, classId: "" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, studentEnrolments: [{ ...enrolment, academicPeriodId: "term-2" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, studentEnrolments: [{ ...enrolment, schoolId: "school-b" }] }), false);
   assert.equal(canAccessStudentRecord({ ...base, studentEnrolments: [{ ...enrolment, status: "withdrawn" }] }), false);
