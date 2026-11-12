@@ -1,10 +1,13 @@
 import type {
+  MembershipStatus,
   SchoolRole,
+  SchoolStatus,
   StudentGuardianLinkIdentity,
   StudentPortalAccountLinkIdentity,
   StudentEnrolmentIdentity,
   TeacherClassAssignmentIdentity,
   TenantRequestContext,
+  UserStatus,
 } from "./identity.js";
 
 export type SchoolPermission =
@@ -16,6 +19,11 @@ export type SchoolPermission =
   | "reports:read" | "portal:self:read";
 
 const ROLE_PERMISSIONS: Record<SchoolRole, readonly SchoolPermission[]> = {
+  school_owner: [
+    "school:read", "school:manage", "users:manage",
+    "students:read", "students:write", "attendance:read", "attendance:write",
+    "academics:read", "academics:write", "finance:read", "finance:write", "reports:read",
+  ],
   school_admin: [
     "school:read", "school:manage", "users:manage",
     "students:read", "students:write", "attendance:read", "attendance:write",
@@ -31,32 +39,35 @@ const ROLE_PERMISSIONS: Record<SchoolRole, readonly SchoolPermission[]> = {
 };
 
 export function hasSchoolPermission(role: SchoolRole, permission: SchoolPermission): boolean {
-  return ROLE_PERMISSIONS[role].includes(permission);
+  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
 export interface MembershipAccessInput {
   authenticatedUserId: string;
   requestedSchoolId: string;
-  membership: { userId: string; schoolId: string; role: SchoolRole; status: "invited" | "active" | "suspended" } | null;
-  userStatus: "pending" | "active" | "disabled";
-  schoolStatus: "provisioning" | "active" | "suspended" | "archived";
+  membership: { userId: string; schoolId: string; role: SchoolRole; status: MembershipStatus } | null;
+  userStatus: UserStatus;
+  schoolStatus: SchoolStatus;
 }
 
 /** Fail-closed check: all identity, membership and tenant records must agree. */
 export function isActiveSchoolMember(input: MembershipAccessInput): boolean {
   const { membership } = input;
+  if (!input.authenticatedUserId.trim() || !input.requestedSchoolId.trim()) return false;
+  if (!membership?.userId.trim() || !membership.schoolId.trim()) return false;
+
   return input.userStatus === "active" && input.schoolStatus === "active"
-    && membership !== null && membership.status === "active"
+    && membership.status === "active"
     && membership.userId === input.authenticatedUserId
     && membership.schoolId === input.requestedSchoolId;
 }
 
 export interface TrustedTenantContextInput {
   authenticatedUserId: string;
-  userStatus: "pending" | "active" | "disabled";
+  userStatus: UserStatus;
   schoolId: string;
-  schoolStatus: "provisioning" | "active" | "suspended" | "archived";
-  membership: { id: string; userId: string; schoolId: string; role: SchoolRole; status: "invited" | "active" | "suspended" } | null;
+  schoolStatus: SchoolStatus;
+  membership: { id: string; userId: string; schoolId: string; role: SchoolRole; status: MembershipStatus } | null;
 }
 
 /**
@@ -72,7 +83,7 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
     schoolStatus: input.schoolStatus,
   })) return null;
 
-  if (!input.membership?.id) return null;
+  if (!input.membership?.id.trim()) return null;
   return {
     userId: input.authenticatedUserId,
     schoolId: input.schoolId,
@@ -123,7 +134,7 @@ export interface StudentRecordAccessInput {
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
   if (!input.actorUserId.trim() || !input.schoolId.trim() || !input.studentId.trim()) return false;
 
-  if (input.role === "school_admin" || input.role === "school_staff") {
+  if (input.role === "school_owner" || input.role === "school_admin" || input.role === "school_staff") {
     return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
   }
 
