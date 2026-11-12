@@ -1,4 +1,11 @@
-import type { SchoolRole, TenantRequestContext } from "./identity.js";
+import type {
+  SchoolRole,
+  StudentGuardianLinkIdentity,
+  StudentPortalAccountLinkIdentity,
+  StudentEnrolmentIdentity,
+  TeacherClassAssignmentIdentity,
+  TenantRequestContext,
+} from "./identity.js";
 
 export type SchoolPermission =
   | "school:read" | "school:manage" | "users:manage"
@@ -74,36 +81,22 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
   };
 }
 
-export interface StudentGuardianRelationship {
-  schoolId: string;
-  guardianUserId: string;
-  studentId: string;
-  status: "pending" | "active" | "revoked";
-}
+export type StudentGuardianRelationship = Pick<
+  StudentGuardianLinkIdentity, "schoolId" | "guardianUserId" | "studentId" | "status"
+>;
 
-export interface StudentPortalAccountLink {
-  schoolId: string;
-  studentId: string;
-  userId: string;
-  status: "pending" | "active" | "revoked";
-}
+export type StudentPortalAccountLink = Pick<
+  StudentPortalAccountLinkIdentity, "schoolId" | "studentId" | "userId" | "status"
+>;
 
-export interface TeacherClassAssignment {
-  schoolId: string;
-  teacherUserId: string;
-  classId: string;
-  subjectId: string;
-  academicPeriodId: string;
-  status: "pending" | "active" | "ended";
-}
+export type TeacherClassAssignment = Pick<
+  TeacherClassAssignmentIdentity,
+  "schoolId" | "teacherUserId" | "classId" | "subjectId" | "academicPeriodId" | "status"
+>;
 
-export interface StudentEnrolment {
-  schoolId: string;
-  studentId: string;
-  classId: string;
-  academicPeriodId: string;
-  status: "pending" | "active" | "completed" | "withdrawn";
-}
+export type StudentEnrolment = Pick<
+  StudentEnrolmentIdentity, "schoolId" | "studentId" | "classId" | "academicPeriodId" | "status"
+>;
 
 export interface StudentRecordAccessInput {
   role: SchoolRole;
@@ -128,7 +121,7 @@ export interface StudentRecordAccessInput {
  * that same class and academic period.
  */
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
-  if (!input.actorUserId || !input.schoolId || !input.studentId) return false;
+  if (!input.actorUserId.trim() || !input.schoolId.trim() || !input.studentId.trim()) return false;
 
   if (input.role === "school_admin" || input.role === "school_staff") {
     return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
@@ -152,14 +145,14 @@ export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean
     return input.teacherAssignments.some((assignment) =>
       assignment.status === "active" && assignment.schoolId === input.schoolId
       && assignment.teacherUserId === input.actorUserId
-      && assignment.classId.length > 0
-      && assignment.subjectId.length > 0
-      && assignment.academicPeriodId.length > 0
+      && assignment.classId.trim().length > 0
+      && assignment.subjectId.trim().length > 0
+      && assignment.academicPeriodId.trim().length > 0
       && input.studentEnrolments.some((enrolment) =>
         enrolment.status === "active" && enrolment.schoolId === input.schoolId
         && enrolment.studentId === input.studentId
-        && enrolment.classId.length > 0 && enrolment.classId === assignment.classId
-        && enrolment.academicPeriodId.length > 0
+        && enrolment.classId.trim().length > 0 && enrolment.classId === assignment.classId
+        && enrolment.academicPeriodId.trim().length > 0
         && enrolment.academicPeriodId === assignment.academicPeriodId));
   }
 
