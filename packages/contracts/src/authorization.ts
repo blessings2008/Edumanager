@@ -77,50 +77,88 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
 export interface StudentGuardianRelationship {
   schoolId: string;
   guardianUserId: string;
-  studentUserId: string;
+  studentId: string;
   status: "pending" | "active" | "revoked";
 }
 
-export interface TeacherStudentAssignment {
+export interface StudentPortalAccountLink {
+  schoolId: string;
+  studentId: string;
+  userId: string;
+  status: "pending" | "active" | "revoked";
+}
+
+export interface TeacherClassAssignment {
   schoolId: string;
   teacherUserId: string;
-  studentUserId: string;
+  classId: string;
+  subjectId: string;
+  academicPeriodId: string;
   status: "pending" | "active" | "ended";
+}
+
+export interface StudentEnrolment {
+  schoolId: string;
+  studentId: string;
+  classId: string;
+  academicPeriodId: string;
+  status: "pending" | "active" | "completed" | "withdrawn";
 }
 
 export interface StudentRecordAccessInput {
   role: SchoolRole;
   actorUserId: string;
   schoolId: string;
-  studentUserId: string;
+  studentId: string;
   action: "read" | "write";
+  studentPortalAccountLinks: readonly StudentPortalAccountLink[];
   guardianRelationships: readonly StudentGuardianRelationship[];
-  teacherAssignments: readonly TeacherStudentAssignment[];
+  teacherAssignments: readonly TeacherClassAssignment[];
+  studentEnrolments: readonly StudentEnrolment[];
 }
 
 /**
  * Resource-level gate for an individual student record.
- * Call after tenant membership and coarse permission checks. Relationship
- * collections must come from trusted, school-scoped server-side queries.
+ * Call after tenant membership and coarse permission checks. Every relationship
+ * collection must come from trusted, school-scoped server-side queries.
+ *
+ * Student login is optional: self-access requires a separate active account
+ * link. Guardian access uses a student-record link. Teacher access is derived
+ * from an active class/subject/period assignment plus an active enrolment in
+ * that same class and academic period.
  */
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
-  if (!input.actorUserId || !input.schoolId || !input.studentUserId) return false;
+  if (!input.actorUserId || !input.schoolId || !input.studentId) return false;
 
   if (input.role === "school_admin" || input.role === "school_staff") {
     return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
   }
+
   if (input.action !== "read") return false;
-  if (input.role === "student") return input.actorUserId === input.studentUserId;
+
+  if (input.role === "student") {
+    return input.studentPortalAccountLinks.some((link) =>
+      link.status === "active" && link.schoolId === input.schoolId
+      && link.userId === input.actorUserId && link.studentId === input.studentId);
+  }
 
   if (input.role === "guardian") {
     return input.guardianRelationships.some((link) =>
       link.status === "active" && link.schoolId === input.schoolId
-      && link.guardianUserId === input.actorUserId && link.studentUserId === input.studentUserId);
+      && link.guardianUserId === input.actorUserId && link.studentId === input.studentId);
   }
+
   if (input.role === "teacher") {
     return input.teacherAssignments.some((assignment) =>
       assignment.status === "active" && assignment.schoolId === input.schoolId
-      && assignment.teacherUserId === input.actorUserId && assignment.studentUserId === input.studentUserId);
+      && assignment.teacherUserId === input.actorUserId
+      && assignment.subjectId.length > 0
+      && input.studentEnrolments.some((enrolment) =>
+        enrolment.status === "active" && enrolment.schoolId === input.schoolId
+        && enrolment.studentId === input.studentId
+        && enrolment.classId === assignment.classId
+        && enrolment.academicPeriodId === assignment.academicPeriodId));
   }
+
   return false;
 }
