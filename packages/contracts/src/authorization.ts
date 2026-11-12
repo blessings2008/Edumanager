@@ -1,3 +1,4 @@
+import { SCHOOL_ROLES } from "./identity.js";
 import type {
   MembershipStatus,
   SchoolRole,
@@ -39,7 +40,8 @@ const ROLE_PERMISSIONS: Record<SchoolRole, readonly SchoolPermission[]> = {
 };
 
 export function hasSchoolPermission(role: SchoolRole, permission: SchoolPermission): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+  if (!Object.hasOwn(ROLE_PERMISSIONS, role)) return false;
+  return ROLE_PERMISSIONS[role].includes(permission);
 }
 
 export interface MembershipAccessInput {
@@ -55,6 +57,7 @@ export function isActiveSchoolMember(input: MembershipAccessInput): boolean {
   const { membership } = input;
   if (!input.authenticatedUserId.trim() || !input.requestedSchoolId.trim()) return false;
   if (!membership?.userId.trim() || !membership.schoolId.trim()) return false;
+  if (!SCHOOL_ROLES.includes(membership.role)) return false;
 
   return input.userStatus === "active" && input.schoolStatus === "active"
     && membership.status === "active"
@@ -133,6 +136,7 @@ export interface StudentRecordAccessInput {
  */
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
   if (!input.actorUserId.trim() || !input.schoolId.trim() || !input.studentId.trim()) return false;
+  if (input.action !== "read" && input.action !== "write") return false;
 
   if (input.role === "school_owner" || input.role === "school_admin" || input.role === "school_staff") {
     return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
