@@ -29,13 +29,13 @@ function addedConstraintValues(constraint: string, field: string): string[] {
     "i",
   );
   const match = alignmentMigration.match(pattern);
-  assert.ok(match, \`Expected migration to define \${constraint}\`);
+  assert.ok(match, "Expected migration to define " + constraint);
   return quotedValues(match[1] ?? "");
 }
 
 function initialInlineConstraintValues(pattern: RegExp, description: string): string[] {
   const match = initialMigration.match(pattern);
-  assert.ok(match, \`Expected initial migration to define \${description}\`);
+  assert.ok(match, "Expected initial migration to define " + description);
   return quotedValues(match[1] ?? "");
 }
 
