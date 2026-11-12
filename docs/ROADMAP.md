@@ -21,8 +21,11 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 - [ ] Implement authentication, sessions, and account recovery.
 - [ ] Add role/permission checks and tenant-isolation tests.
 - [ ] Build initial school setup wizard.
+- [ ] Reconcile database schema vocabulary with shared identity contracts before runtime integration.
 
 **Exit criteria:** two test schools can be created, users can be assigned to each, and cross-school access tests pass.
+
+**Verified partial foundation (not phase-complete):** shared identity contracts, fail-closed membership/context checks, role-permission primitives, and student relationship policy functions exist with unit tests. Student records are independent of optional portal accounts; guardian links target student records; teacher access is derived from class/subject/academic-period assignments and active enrolment. These functions are not yet connected to authentication middleware, database repositories, or tenant-isolation integration tests.
 
 ## Phase 2 — School administration
 - [ ] School profile and branding.
