@@ -1,29 +1,68 @@
 /** Identity and tenancy contracts shared by the API and web application. */
 export type Identifier = string;
 export type PlatformRole = "platform_owner";
-export type SchoolRole = "school_admin" | "school_staff" | "teacher" | "student" | "guardian";
-export type MembershipStatus = "invited" | "active" | "suspended";
+
+export const SCHOOL_ROLES = [
+  "school_owner", "school_admin", "school_staff", "teacher", "student", "guardian",
+] as const;
+export type SchoolRole = typeof SCHOOL_ROLES[number];
+
+export const USER_STATUSES = ["pending", "active", "disabled"] as const;
+export type UserStatus = typeof USER_STATUSES[number];
+
+export const SCHOOL_STATUSES = ["provisioning", "active", "suspended", "archived"] as const;
+export type SchoolStatus = typeof SCHOOL_STATUSES[number];
+
+export const MEMBERSHIP_STATUSES = ["invited", "active", "suspended", "revoked"] as const;
+export type MembershipStatus = typeof MEMBERSHIP_STATUSES[number];
+
+export const SCHOOL_DOMAIN_KINDS = ["platform_subdomain", "custom"] as const;
+export type SchoolDomainKind = typeof SCHOOL_DOMAIN_KINDS[number];
+
+export const SCHOOL_DOMAIN_VERIFICATION_STATUSES = ["pending", "verified", "revoked"] as const;
+export type SchoolDomainVerificationStatus = typeof SCHOOL_DOMAIN_VERIFICATION_STATUSES[number];
 
 export interface SchoolIdentity {
-  id: Identifier; name: string; slug: string;
-  status: "provisioning" | "active" | "suspended" | "archived";
+  id: Identifier;
+  name: string;
+  slug: string;
+  countryCode: string;
+  timezone: string;
+  status: SchoolStatus;
 }
+
 export interface UserIdentity {
-  id: Identifier; email: string; emailVerifiedAt: string | null;
-  status: "pending" | "active" | "disabled";
+  id: Identifier;
+  email: string;
+  fullName: string;
+  emailVerifiedAt: string | null;
+  status: UserStatus;
 }
+
 export interface SchoolMembershipIdentity {
-  id: Identifier; schoolId: Identifier; userId: Identifier;
-  role: SchoolRole; status: MembershipStatus;
+  id: Identifier;
+  schoolId: Identifier;
+  userId: Identifier;
+  role: SchoolRole;
+  status: MembershipStatus;
 }
+
 export interface SchoolDomainIdentity {
-  id: Identifier; schoolId: Identifier; hostname: string;
-  kind: "platform_subdomain" | "custom";
-  status: "pending_verification" | "active" | "disabled";
+  id: Identifier;
+  schoolId: Identifier;
+  hostname: string;
+  kind: SchoolDomainKind;
+  verificationStatus: SchoolDomainVerificationStatus;
+  isPrimary: boolean;
+  verifiedAt: string | null;
 }
+
 /** Created only from trusted server-side authentication and tenant resolution. */
 export interface TenantRequestContext {
-  userId: Identifier; schoolId: Identifier; membershipId: Identifier; role: SchoolRole;
+  userId: Identifier;
+  schoolId: Identifier;
+  membershipId: Identifier;
+  role: SchoolRole;
 }
 
 /**
