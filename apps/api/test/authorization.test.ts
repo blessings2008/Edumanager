@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   buildTenantRequestContext, canAccessStudentRecord, hasSchoolPermission, isActiveSchoolMember,
 } from "../../../packages/contracts/src/authorization.js";
-import type { StudentRecordIdentity } from "../../../packages/contracts/src/identity.js";
+import { SCHOOL_ROLES, type StudentRecordIdentity } from "../../../packages/contracts/src/identity.js";
 
 const activeMembership = {
   authenticatedUserId: "user-a",
@@ -20,10 +20,17 @@ test("rejects a membership belonging to another user or school", () => {
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, userId: "user-b" } }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, schoolId: "school-b" } }), false);
 });
-test("fails closed for missing, invited or suspended memberships", () => {
+test("fails closed for missing, invited, suspended or revoked memberships", () => {
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: null }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, status: "invited" } }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, status: "suspended" } }), false);
+  assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, status: "revoked" } }), false);
+});
+test("fails closed when user, school or membership identifiers are blank", () => {
+  assert.equal(isActiveSchoolMember({ ...activeMembership, authenticatedUserId: " " }), false);
+  assert.equal(isActiveSchoolMember({ ...activeMembership, requestedSchoolId: "" }), false);
+  assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, userId: " " } }), false);
+  assert.equal(isActiveSchoolMember({ ...activeMembership, membership: { ...activeMembership.membership, schoolId: "" } }), false);
 });
 test("fails closed when the user or school is not active", () => {
   assert.equal(isActiveSchoolMember({ ...activeMembership, userStatus: "disabled" }), false);
@@ -31,9 +38,16 @@ test("fails closed when the user or school is not active", () => {
   assert.equal(isActiveSchoolMember({ ...activeMembership, schoolStatus: "suspended" }), false);
   assert.equal(isActiveSchoolMember({ ...activeMembership, schoolStatus: "provisioning" }), false);
 });
-test("school admin receives administrative permissions", () => {
+test("school owners and administrators receive administrative permissions", () => {
+  assert.equal(hasSchoolPermission("school_owner", "school:manage"), true);
+  assert.equal(hasSchoolPermission("school_owner", "users:manage"), true);
   assert.equal(hasSchoolPermission("school_admin", "users:manage"), true);
   assert.equal(hasSchoolPermission("school_admin", "finance:write"), true);
+});
+test("school staff can manage daily student work but not users or school finance", () => {
+  assert.equal(hasSchoolPermission("school_staff", "students:write"), true);
+  assert.equal(hasSchoolPermission("school_staff", "users:manage"), false);
+  assert.equal(hasSchoolPermission("school_staff", "finance:write"), false);
 });
 test("teachers cannot manage users or school finance", () => {
   assert.equal(hasSchoolPermission("teacher", "academics:write"), true);
@@ -45,6 +59,14 @@ test("students and guardians receive only the generic self-portal grant", () => 
   assert.equal(hasSchoolPermission("guardian", "portal:self:read"), true);
   assert.equal(hasSchoolPermission("guardian", "students:read"), false);
   assert.equal(hasSchoolPermission("student", "finance:read"), false);
+});
+test("every persisted school role has an explicit permission policy", () => {
+  assert.deepEqual([...SCHOOL_ROLES].sort(), [
+    "guardian", "school_admin", "school_owner", "school_staff", "student", "teacher",
+  ]);
+  for (const role of SCHOOL_ROLES) {
+    assert.equal(typeof hasSchoolPermission(role, "school:read"), "boolean");
+  }
 });
 
 test("tenant context is built only from matching active trusted records", () => {
@@ -59,6 +81,7 @@ test("tenant context is built only from matching active trusted records", () => 
   assert.equal(buildTenantRequestContext({ ...base, membership: { ...base.membership, schoolId: "school-b" } }), null);
   assert.equal(buildTenantRequestContext({ ...base, schoolStatus: "suspended" }), null);
   assert.equal(buildTenantRequestContext({ ...base, membership: null }), null);
+  assert.equal(buildTenantRequestContext({ ...base, membership: { ...base.membership, id: " " } }), null);
 });
 
 const studentRecord: StudentRecordIdentity = {
@@ -135,11 +158,12 @@ test("teacher access requires an active class/subject/period assignment and matc
   assert.equal(canAccessStudentRecord({ ...base, action: "write" }), false);
 });
 
-test("school administrators and staff follow their explicit student permissions", () => {
+test("school owners, administrators and staff follow their explicit student permissions", () => {
   const base = {
     actorUserId: "staff-a", schoolId: "school-a", studentId: "student-a",
     studentPortalAccountLinks: [], guardianRelationships: [], teacherAssignments: [], studentEnrolments: [],
   };
+  assert.equal(canAccessStudentRecord({ ...base, role: "school_owner", action: "write" }), true);
   assert.equal(canAccessStudentRecord({ ...base, role: "school_admin", action: "write" }), true);
   assert.equal(canAccessStudentRecord({ ...base, role: "school_staff", action: "write" }), true);
 });
