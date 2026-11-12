@@ -1,3 +1,14 @@
+-- The initial schema has no domain-kind field. Refuse to guess the kind of
+-- existing hostnames; classify them explicitly before applying if any exist.
+DO $migration$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.school_domains) THEN
+    RAISE EXCEPTION
+      'Cannot infer school_domains.kind for existing rows; classify each hostname before applying this migration.';
+  END IF;
+END;
+$migration$;
+
 -- Align the first Supabase schema with the shared TypeScript identity contracts.
 -- Repository change only: review this migration before applying it to Supabase.
 
@@ -35,17 +46,6 @@ ALTER TABLE public.school_memberships
 ALTER TABLE public.school_memberships
   ADD CONSTRAINT school_memberships_status_check
   CHECK (status IN ('invited', 'active', 'suspended', 'revoked'));
-
--- The initial schema has no domain-kind field. Refuse to guess the kind of
--- existing hostnames; classify them explicitly before applying if any exist.
-DO $migration$
-BEGIN
-  IF EXISTS (SELECT 1 FROM public.school_domains) THEN
-    RAISE EXCEPTION
-      'Cannot infer school_domains.kind for existing rows; classify each hostname before applying this migration.';
-  END IF;
-END;
-$migration$;
 
 ALTER TABLE public.school_domains
   ADD COLUMN kind text NOT NULL;
