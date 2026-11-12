@@ -12,6 +12,9 @@ SET status = 'provisioning'
 WHERE status = 'onboarding';
 
 ALTER TABLE public.schools
+  ALTER COLUMN status SET DEFAULT 'provisioning';
+
+ALTER TABLE public.schools
   ADD CONSTRAINT schools_status_check
   CHECK (status IN ('provisioning', 'active', 'suspended', 'archived'));
 
