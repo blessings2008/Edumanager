@@ -48,6 +48,8 @@ END;
 $migration$;
 
 ALTER TABLE public.school_domains
-  ADD COLUMN kind text NOT NULL
-  CONSTRAINT school_domains_kind_check
+  ADD COLUMN kind text NOT NULL;
+
+ALTER TABLE public.school_domains
+  ADD CONSTRAINT school_domains_kind_check
   CHECK (kind IN ('platform_subdomain', 'custom'));
