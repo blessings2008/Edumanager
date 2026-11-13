@@ -30,6 +30,14 @@ Every school-owned row must carry a non-null school_id. Foreign keys must preven
 ## Domain safety
 Platform subdomains use a configured base domain. Custom domains require ownership verification, TLS readiness and an exact active mapping. Host parsing rejects malformed values, ports, paths and unexpected nested subdomains. Reverse-proxy trust must be configured narrowly; do not blindly trust forwarded-host headers.
 
+## Authentication adapter boundary
+
+The API exposes a protected `GET /api/v1/me` endpoint behind an injected, provider-neutral authentication adapter. The adapter is the only source of an authenticated principal. Its result is runtime-validated and reduced to an active global user ID; tenant IDs, school roles and permissions are deliberately discarded at this boundary.
+
+An adapter implementation must verify a signed or opaque session/token server-side and resolve the active user from trusted persistence. It must not treat request headers, query parameters, body fields, hostnames or client-supplied school IDs as identity. If no adapter is configured, or the adapter returns a malformed or inactive principal, the endpoint denies access with 401.
+
+The current server entry point does not configure an adapter, so `/api/v1/me` remains closed by default. No authentication provider, session issuance, session revocation or account recovery flow has been selected or implemented. School membership and tenant context remain separate server-side checks after authentication.
+
 ## Current boundary
 The API includes a pure resolver for platform subdomains and tests. It is not authentication middleware and does not query a database. Custom-domain resolution remains database-backed future work.
 
