@@ -38,6 +38,14 @@ An adapter implementation must verify a signed or opaque session/token server-si
 
 The current server entry point does not configure an adapter, so `/api/v1/me` remains closed by default. No authentication provider, session issuance, session revocation or account recovery flow has been selected or implemented. School membership and tenant context remain separate server-side checks after authentication.
 
+## Tenant membership resolver boundary
+
+The API also defines an injected tenant-context resolver for protected `GET /api/v1/schools/:schoolId/context`. The route first requires an authenticated global user, then passes only that user ID and the requested path school ID to the resolver. The path value selects the requested scope; it is not proof of access and cannot override the authenticated identity.
+
+A resolver implementation must load the user, school and membership from trusted persistence, verify that all are active and agree, and construct the context using the shared `buildTenantRequestContext` policy. The API independently checks that the returned user and school IDs match the authenticated principal and requested scope, that the membership ID is nonblank, and that the role is in the shared school-role vocabulary. Unknown resolver fields are discarded.
+
+No resolver is configured in the server entry point. The route returns 503 until a trusted resolver is supplied, 401 without authentication, and 403 for a malformed or mismatched context. This is an integration seam only: it does not query the database, establish RLS, or authorize school-data routes.
+
 ## Current boundary
 The hostname resolver is a pure function for platform subdomains and does not query a database. The injected authentication adapter is a separate identity boundary; neither component currently resolves school memberships or custom-domain mappings. Custom-domain resolution remains database-backed future work.
 
