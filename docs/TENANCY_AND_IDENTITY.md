@@ -39,7 +39,7 @@ An adapter implementation must verify a signed or opaque session/token server-si
 The current server entry point does not configure an adapter, so `/api/v1/me` remains closed by default. No authentication provider, session issuance, session revocation or account recovery flow has been selected or implemented. School membership and tenant context remain separate server-side checks after authentication.
 
 ## Current boundary
-The API includes a pure resolver for platform subdomains and tests. It is not authentication middleware and does not query a database. Custom-domain resolution remains database-backed future work.
+The hostname resolver is a pure function for platform subdomains and does not query a database. The injected authentication adapter is a separate identity boundary; neither component currently resolves school memberships or custom-domain mappings. Custom-domain resolution remains database-backed future work.
 
 ## Acceptance criteria before school data routes ship
 - Cross-tenant access tests for every school-owned resource.
