@@ -178,3 +178,167 @@ test("GET /api/v1/me does not expose authentication adapter failures", async () 
     await app.close();
   }
 });
+
+
+import { SCHOOL_ROLES } from "../../../packages/contracts/src/identity.js";
+import { TENANT_SCHOOL_ROLES } from "../src/domain/tenant-authorization.js";
+
+test("API tenant roles stay aligned with the shared identity contract", () => {
+  assert.deepEqual(TENANT_SCHOOL_ROLES, SCHOOL_ROLES);
+});
+
+test("school context route requires a configured membership resolver", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+    });
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.json(), {
+      error: "Service Unavailable",
+      message: "School access is not configured.",
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("school context route requires authentication before membership resolution", async () => {
+  let resolverCalled = false;
+  const app = buildApp(config, false, {
+    resolveTenantContext: async () => {
+      resolverCalled = true;
+      return {
+        userId: "user-a",
+        schoolId: "school-a",
+        membershipId: "membership-a",
+        role: "school_admin",
+      };
+    },
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+      headers: { "x-user-id": "user-a", "x-school-id": "school-a" },
+    });
+    assert.equal(response.statusCode, 401);
+    assert.equal(resolverCalled, false);
+  } finally {
+    await app.close();
+  }
+});
+
+test("school context resolver receives only authenticated identity and requested path scope", async () => {
+  const resolverCalls: Array<{ authenticatedUserId: string; requestedSchoolId: string }> = [];
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({
+      userId: "user-a",
+      userStatus: "active",
+      schoolId: "forged-school",
+      role: "school_owner",
+    }),
+    resolveTenantContext: async (input) => {
+      resolverCalls.push(input);
+      return {
+        userId: input.authenticatedUserId,
+        schoolId: input.requestedSchoolId,
+        membershipId: "membership-a",
+        role: "teacher",
+        platformRole: "platform_owner",
+        permissions: ["*"],
+      };
+    },
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context?schoolId=school-c",
+      headers: { "x-school-id": "school-b" },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
+    assert.deepEqual(resolverCalls, [{
+      authenticatedUserId: "user-a",
+      requestedSchoolId: "school-a",
+    }]);
+  } finally {
+    await app.close();
+  }
+});
+
+test("school context route rejects mismatched or malformed resolver results", async () => {
+  const invalidContexts: unknown[] = [
+    null,
+    [],
+    {},
+    { userId: "user-b", schoolId: "school-a", membershipId: "membership-a", role: "teacher" },
+    { userId: "user-a", schoolId: "school-b", membershipId: "membership-a", role: "teacher" },
+    { userId: "user-a", schoolId: "school-a", membershipId: " ", role: "teacher" },
+    { userId: "user-a", schoolId: "school-a", membershipId: "membership-a", role: "platform_owner" },
+  ];
+
+  for (const context of invalidContexts) {
+    const app = buildApp(config, false, {
+      authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+      resolveTenantContext: async () => context,
+    });
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/schools/school-a/context",
+      });
+      assert.equal(response.statusCode, 403);
+      assert.deepEqual(response.json(), {
+        error: "Forbidden",
+        message: "You do not have access to this school.",
+      });
+    } finally {
+      await app.close();
+    }
+  }
+});
+
+test("school context route rejects malformed requested school identifiers", async () => {
+  let resolverCalled = false;
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    resolveTenantContext: async () => {
+      resolverCalled = true;
+      return null;
+    },
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/%20/context",
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(resolverCalled, false);
+  } finally {
+    await app.close();
+  }
+});
+
+test("school membership resolver failures do not expose internal details", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    resolveTenantContext: async () => {
+      throw new Error("private membership query details");
+    },
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+    });
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.json().message, "An unexpected error occurred.");
+    assert.equal(JSON.stringify(response.json()).includes("private membership query details"), false);
+  } finally {
+    await app.close();
+  }
+});
