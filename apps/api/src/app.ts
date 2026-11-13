@@ -31,18 +31,20 @@ export function buildApp(
   const requireAuthentication = async (request: FastifyRequest, reply: FastifyReply) => {
     const adapter = dependencies.authenticateRequest;
     if (!adapter) {
-      return reply.code(401).send({
+      reply.code(401).send({
         error: "Unauthorized",
         message: "Authentication is required.",
       });
+      return;
     }
 
     const principal = parseAuthenticatedPrincipal(await adapter(request));
     if (!principal) {
-      return reply.code(401).send({
+      reply.code(401).send({
         error: "Unauthorized",
         message: "Authentication is required.",
       });
+      return;
     }
 
     request.authenticatedPrincipal = principal;
