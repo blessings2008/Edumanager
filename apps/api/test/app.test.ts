@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildApp } from "../src/app.js";
 import { readConfig } from "../src/config.js";
+import { SCHOOL_ROLES } from "../../../packages/contracts/src/identity.js";
+import { TENANT_SCHOOL_ROLES } from "../src/domain/tenant-authorization.js";
 
 const config = {
   port: 4000,
@@ -180,8 +182,6 @@ test("GET /api/v1/me does not expose authentication adapter failures", async () 
 });
 
 
-import { SCHOOL_ROLES } from "../../../packages/contracts/src/identity.js";
-import { TENANT_SCHOOL_ROLES } from "../src/domain/tenant-authorization.js";
 
 test("API tenant roles stay aligned with the shared identity contract", () => {
   assert.deepEqual(TENANT_SCHOOL_ROLES, SCHOOL_ROLES);
