@@ -26,7 +26,8 @@
 - Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver.
 - The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown resolver fields are discarded.
 - A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403.
-- The server entry point does not configure a resolver. No database membership query or school-data route is connected yet.
+- Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
+- The server entry point does not configure a reader or resolver. No database membership query or school-data route is connected yet.
 
 ### Verified student relationship policy foundation
 - Student records are modelled as school-owned records without a required login user ID.
