@@ -1,4 +1,9 @@
-import { SCHOOL_ROLES } from "./identity.js";
+import {
+  MEMBERSHIP_STATUSES,
+  SCHOOL_ROLES,
+  SCHOOL_STATUSES,
+  USER_STATUSES,
+} from "./identity.js";
 import type {
   MembershipStatus,
   SchoolRole,
@@ -92,6 +97,107 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
     schoolId: input.schoolId,
     membershipId: input.membership.id,
     role: input.membership.role,
+  };
+}
+
+
+/** Expected shape of one consistent, server-loaded membership snapshot. */
+export interface TenantMembershipSnapshot {
+  user: { id: string; status: UserStatus };
+  school: { id: string; status: SchoolStatus };
+  membership: {
+    id: string;
+    userId: string;
+    schoolId: string;
+    role: SchoolRole;
+    status: MembershipStatus;
+  } | null;
+}
+
+export interface TenantMembershipReader {
+  /**
+   * Load the persisted user, school and membership records for this exact
+   * authenticated-user/requested-school pair from one consistent snapshot.
+   * Return their actual IDs and statuses; never copy identifiers or roles
+   * from untrusted request data.
+   */
+  loadTenantMembership(input: {
+    authenticatedUserId: string;
+    requestedSchoolId: string;
+  }): Promise<unknown>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCanonicalIdentifier(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.trim() === value;
+}
+
+function isOneOf<const T extends readonly string[]>(
+  values: T,
+  value: unknown,
+): value is T[number] {
+  return typeof value === "string" && (values as readonly string[]).includes(value);
+}
+
+/**
+ * Creates the provider-neutral resolver expected by the API membership seam.
+ *
+ * The reader is a server-only persistence adapter. Its returned snapshot is
+ * treated as untrusted until every record ID and status is checked. The
+ * shared buildTenantRequestContext policy then enforces active status and
+ * exact user/school/membership relationships. Persistence errors propagate
+ * so the API can log them internally and return its sanitized error response.
+ */
+export function createTenantContextResolver(reader: TenantMembershipReader) {
+  return async (input: {
+    authenticatedUserId: string;
+    requestedSchoolId: string;
+  }): Promise<TenantRequestContext | null> => {
+    if (!isCanonicalIdentifier(input.authenticatedUserId)
+      || !isCanonicalIdentifier(input.requestedSchoolId)) return null;
+
+    const snapshot = await reader.loadTenantMembership({
+      authenticatedUserId: input.authenticatedUserId,
+      requestedSchoolId: input.requestedSchoolId,
+    });
+
+    if (!isRecord(snapshot) || !isRecord(snapshot.user) || !isRecord(snapshot.school)
+      || !isRecord(snapshot.membership)) return null;
+
+    const user = snapshot.user;
+    const school = snapshot.school;
+    const membership = snapshot.membership;
+
+    if (!isCanonicalIdentifier(user.id)
+      || user.id !== input.authenticatedUserId
+      || !isOneOf(USER_STATUSES, user.status)
+      || !isCanonicalIdentifier(school.id)
+      || school.id !== input.requestedSchoolId
+      || !isOneOf(SCHOOL_STATUSES, school.status)
+      || !isCanonicalIdentifier(membership.id)
+      || !isCanonicalIdentifier(membership.userId)
+      || !isCanonicalIdentifier(membership.schoolId)
+      || !isOneOf(SCHOOL_ROLES, membership.role)
+      || !isOneOf(MEMBERSHIP_STATUSES, membership.status)) {
+      return null;
+    }
+
+    return buildTenantRequestContext({
+      authenticatedUserId: input.authenticatedUserId,
+      userStatus: user.status,
+      schoolId: school.id,
+      schoolStatus: school.status,
+      membership: {
+        id: membership.id,
+        userId: membership.userId,
+        schoolId: membership.schoolId,
+        role: membership.role,
+        status: membership.status,
+      },
+    });
   };
 }
 

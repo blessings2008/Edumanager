@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  buildTenantRequestContext, canAccessStudentRecord, hasSchoolPermission, isActiveSchoolMember,
+  buildTenantRequestContext, canAccessStudentRecord, createTenantContextResolver,
+  hasSchoolPermission, isActiveSchoolMember,
 } from "../../../packages/contracts/src/authorization.js";
 import { SCHOOL_ROLES, type SchoolRole, type StudentRecordIdentity } from "../../../packages/contracts/src/identity.js";
 
@@ -96,6 +97,115 @@ test("tenant context is built only from matching active trusted records", () => 
   assert.equal(buildTenantRequestContext({ ...base, schoolStatus: "suspended" }), null);
   assert.equal(buildTenantRequestContext({ ...base, membership: null }), null);
   assert.equal(buildTenantRequestContext({ ...base, membership: { ...base.membership, id: " " } }), null);
+});
+
+
+test("tenant resolver factory loads exact persisted identities and builds a trusted context", async () => {
+  const lookups: Array<{ authenticatedUserId: string; requestedSchoolId: string }> = [];
+  const resolve = createTenantContextResolver({
+    loadTenantMembership: async (input) => {
+      lookups.push(input);
+      return {
+        user: { id: "user-a", status: "active" },
+        school: { id: "school-a", status: "active" },
+        membership: {
+          id: "membership-a",
+          userId: "user-a",
+          schoolId: "school-a",
+          role: "teacher",
+          status: "active",
+        },
+        platformRole: "platform_owner",
+        permissions: ["*"],
+      };
+    },
+  });
+
+  assert.deepEqual(await resolve({
+    authenticatedUserId: "user-a",
+    requestedSchoolId: "school-a",
+  }), {
+    userId: "user-a",
+    schoolId: "school-a",
+    membershipId: "membership-a",
+    role: "teacher",
+  });
+  assert.deepEqual(lookups, [{
+    authenticatedUserId: "user-a",
+    requestedSchoolId: "school-a",
+  }]);
+});
+
+test("tenant resolver factory rejects inactive, mismatched and malformed persisted snapshots", async () => {
+  const valid = {
+    user: { id: "user-a", status: "active" },
+    school: { id: "school-a", status: "active" },
+    membership: {
+      id: "membership-a",
+      userId: "user-a",
+      schoolId: "school-a",
+      role: "teacher",
+      status: "active",
+    },
+  };
+  const invalidSnapshots: unknown[] = [
+    null,
+    [],
+    {},
+    { ...valid, user: { ...valid.user, id: "user-b" } },
+    { ...valid, user: { ...valid.user, status: "disabled" } },
+    { ...valid, user: { ...valid.user, status: "pending" } },
+    { ...valid, school: { ...valid.school, id: "school-b" } },
+    { ...valid, school: { ...valid.school, status: "suspended" } },
+    { ...valid, school: { ...valid.school, status: "provisioning" } },
+    { ...valid, membership: null },
+    { ...valid, membership: { ...valid.membership, id: " " } },
+    { ...valid, membership: { ...valid.membership, userId: "user-b" } },
+    { ...valid, membership: { ...valid.membership, schoolId: "school-b" } },
+    { ...valid, membership: { ...valid.membership, role: "platform_owner" } },
+    { ...valid, membership: { ...valid.membership, status: "invited" } },
+    { ...valid, membership: { ...valid.membership, status: "suspended" } },
+    { ...valid, membership: { ...valid.membership, status: "revoked" } },
+  ];
+
+  for (const snapshot of invalidSnapshots) {
+    const resolve = createTenantContextResolver({
+      loadTenantMembership: async () => snapshot,
+    });
+    assert.equal(await resolve({
+      authenticatedUserId: "user-a",
+      requestedSchoolId: "school-a",
+    }), null);
+  }
+});
+
+test("tenant resolver factory does not query persistence for blank request identifiers", async () => {
+  let readerCalled = false;
+  const resolve = createTenantContextResolver({
+    loadTenantMembership: async () => {
+      readerCalled = true;
+      return null;
+    },
+  });
+
+  assert.equal(await resolve({
+    authenticatedUserId: " ",
+    requestedSchoolId: "school-a",
+  }), null);
+  assert.equal(readerCalled, false);
+});
+
+test("tenant resolver factory propagates persistence failures for sanitized API handling", async () => {
+  const resolve = createTenantContextResolver({
+    loadTenantMembership: async () => {
+      throw new Error("private persistence details");
+    },
+  });
+
+  await assert.rejects(
+    resolve({ authenticatedUserId: "user-a", requestedSchoolId: "school-a" }),
+    /private persistence details/,
+  );
 });
 
 const studentRecord: StudentRecordIdentity = {

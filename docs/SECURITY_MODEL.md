@@ -17,6 +17,7 @@ This document defines minimum expectations for the first implementation. It is n
 - If no adapter is configured or its result is invalid/inactive, protected endpoints deny access. Do not add a permissive development fallback.
 - A school ID in a route path is only a requested scope. Resolve membership using the authenticated global user ID and trusted user, school and membership records; never accept a client-supplied role or membership ID.
 - The API must reject a tenant context unless its user and school IDs match the authenticated principal and requested scope, and its membership ID and role are valid. If the membership resolver is absent, the route remains unavailable rather than granting access.
+- A server-side membership reader must return the actual persisted user, school and membership identifiers and statuses for the authenticated-user/requested-school pair from one consistent database snapshot. Validate that snapshot with the shared `buildTenantRequestContext` policy; missing, malformed, inactive or mismatched records must produce no tenant context.
 
 ## Authorisation
 
