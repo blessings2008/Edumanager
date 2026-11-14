@@ -101,6 +101,19 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
 }
 
 
+/** Expected shape of one consistent, server-loaded membership snapshot. */
+export interface TenantMembershipSnapshot {
+  user: { id: string; status: UserStatus };
+  school: { id: string; status: SchoolStatus };
+  membership: {
+    id: string;
+    userId: string;
+    schoolId: string;
+    role: SchoolRole;
+    status: MembershipStatus;
+  } | null;
+}
+
 export interface TenantMembershipReader {
   /**
    * Load the persisted user, school and membership records for this exact
