@@ -6,7 +6,7 @@ import {
   POSTGRES_TENANT_MEMBERSHIP_SQL,
 } from "../src/persistence/postgres-tenant-membership-reader.js";
 
-const userId = "00000000-0000-4000-8000-000000000001";
+const userId = "a0000000-0000-4000-8000-000000000001";
 const schoolId = "00000000-0000-4000-8000-000000000002";
 
 const persistedRow = {
