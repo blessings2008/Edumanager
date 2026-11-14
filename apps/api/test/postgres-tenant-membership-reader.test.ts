@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createTenantContextResolver } from "../../../packages/contracts/src/authorization.js";
 import {
   createPostgresTenantMembershipReader,
   POSTGRES_TENANT_MEMBERSHIP_SQL,
@@ -121,6 +122,34 @@ test("PostgreSQL membership reader preserves persisted inactive statuses for pol
       status: "revoked",
     },
   });
+});
+
+
+test("PostgreSQL reader composes with the shared resolver and rejects inactive membership", async () => {
+  const resolveActive = createTenantContextResolver(createPostgresTenantMembershipReader({
+    query: async () => ({ rows: [persistedRow] }),
+  }));
+
+  assert.deepEqual(await resolveActive({
+    authenticatedUserId: userId,
+    requestedSchoolId: schoolId,
+  }), {
+    userId,
+    schoolId,
+    membershipId: persistedRow.membership_id,
+    role: "teacher",
+  });
+
+  const resolveInactive = createTenantContextResolver(createPostgresTenantMembershipReader({
+    query: async () => ({
+      rows: [{ ...persistedRow, membership_status: "revoked" }],
+    }),
+  }));
+
+  assert.equal(await resolveInactive({
+    authenticatedUserId: userId,
+    requestedSchoolId: schoolId,
+  }), null);
 });
 
 test("PostgreSQL membership reader propagates persistence failures", async () => {
