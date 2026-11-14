@@ -58,7 +58,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Creates a provider-independent membership reader for a PostgreSQL executor.
+ * Creates the shared membership-reader contract implementation for any PostgreSQL executor.
  *
  * The executor must be server-only and configured with a credential suitable
  * for this narrowly scoped lookup. Do not expose it to the browser or reuse a
