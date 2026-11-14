@@ -104,8 +104,9 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
 export interface TenantMembershipReader {
   /**
    * Load the persisted user, school and membership records for this exact
-   * authenticated-user/requested-school pair. Return their actual IDs and
-   * statuses; do not copy identifiers or roles from untrusted request data.
+   * authenticated-user/requested-school pair from one consistent snapshot.
+   * Return their actual IDs and statuses; never copy identifiers or roles
+   * from untrusted request data.
    */
   loadTenantMembership(input: {
     authenticatedUserId: string;
