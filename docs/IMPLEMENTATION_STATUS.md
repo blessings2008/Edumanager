@@ -27,7 +27,9 @@
 - The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown resolver fields are discarded.
 - A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403.
 - Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
-- The server entry point does not configure a reader or resolver. No database membership query or school-data route is connected yet.
+- A PostgreSQL membership-reader adapter now performs one parameterized join across the persisted user, school and membership tables. It rejects malformed UUID inputs and returns no snapshot for missing, duplicate or malformed query results; it deliberately returns inactive statuses for the shared policy to reject.
+- Unit tests exercise the SQL parameters, school/user relationship joins, fail-closed result handling and persistence errors through an injected query executor.
+- The server entry point does not configure the adapter or resolver. No connection pool, runtime database credentials, live membership lookup or school-data route is connected yet.
 
 ### Verified student relationship policy foundation
 - Student records are modelled as school-owned records without a required login user ID.
@@ -57,14 +59,14 @@
 
 ### Deliberately not implemented yet
 - Authentication provider, credential/session lifecycle and application-user identity mapping.
-- Runtime database client, connection pooling and transaction-scoped tenant context.
+- Runtime database client, connection pooling and transaction-scoped tenant context. The membership reader is an unconfigured adapter only; do not wire tenant-owned operations through a privileged RLS-bypass credential.
 - Tenant-aware RLS policies and cross-school database integration tests.
 - Student, guardian, staff, class, academic or finance tables.
 - Database-backed repositories and API routes.
 - Production deployment configuration.
 
 ### Remaining integration blockers
-The live database still has only the initial migration applied, so its persisted values do not yet match the updated shared contracts. The follow-up migration must be reviewed and explicitly applied before runtime integration. Authentication architecture, secure identity mapping, tenant-scoped database access, RLS policies and cross-tenant integration tests also remain pending.
+The live database still has only the initial migration applied, so its persisted role/status vocabulary does not yet fully match the updated shared contracts. The follow-up migration must be reviewed and explicitly applied before the membership reader can safely be wired. The reader has no configured query executor or runtime credential. Authentication architecture, secure identity mapping, tenant-scoped database access, RLS policies and cross-tenant integration tests also remain pending.
 
 The database foundation is not a production-ready application data layer. Do not add real student or school data or enable browser access until authentication, tenant-scoped runtime access, resource relationship checks, RLS policies and cross-tenant integration tests are implemented and verified.
 
