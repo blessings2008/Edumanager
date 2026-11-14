@@ -1,4 +1,14 @@
-import type { TenantMembershipReader } from "../../../../packages/contracts/src/authorization.js";
+/**
+ * Structural contract shared with createTenantContextResolver. Kept local to
+ * the API source tree so the API's TypeScript rootDir does not pull contract
+ * package source files into the API compilation unit.
+ */
+export interface PostgresTenantMembershipReader {
+  loadTenantMembership(input: {
+    authenticatedUserId: string;
+    requestedSchoolId: string;
+  }): Promise<unknown>;
+}
 
 /**
  * Minimal node-postgres-compatible query boundary. The application supplies a
@@ -56,7 +66,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function createPostgresTenantMembershipReader(
   executor: PostgresQueryExecutor,
-): TenantMembershipReader {
+): PostgresTenantMembershipReader {
   return {
     async loadTenantMembership(input) {
       if (!isCanonicalUuid(input.authenticatedUserId)
