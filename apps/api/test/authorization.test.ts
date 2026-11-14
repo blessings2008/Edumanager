@@ -154,13 +154,17 @@ test("tenant resolver factory rejects inactive, mismatched and malformed persist
     {},
     { ...valid, user: { ...valid.user, id: "user-b" } },
     { ...valid, user: { ...valid.user, status: "disabled" } },
+    { ...valid, user: { ...valid.user, status: "pending" } },
     { ...valid, school: { ...valid.school, id: "school-b" } },
     { ...valid, school: { ...valid.school, status: "suspended" } },
+    { ...valid, school: { ...valid.school, status: "provisioning" } },
     { ...valid, membership: null },
     { ...valid, membership: { ...valid.membership, id: " " } },
     { ...valid, membership: { ...valid.membership, userId: "user-b" } },
     { ...valid, membership: { ...valid.membership, schoolId: "school-b" } },
     { ...valid, membership: { ...valid.membership, role: "platform_owner" } },
+    { ...valid, membership: { ...valid.membership, status: "invited" } },
+    { ...valid, membership: { ...valid.membership, status: "suspended" } },
     { ...valid, membership: { ...valid.membership, status: "revoked" } },
   ];
 
