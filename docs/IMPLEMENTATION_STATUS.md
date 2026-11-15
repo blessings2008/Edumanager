@@ -13,13 +13,21 @@
 - Coarse role-permission matrix and resource-level student access policy building blocks.
 - GitHub Actions workflow for tests, type-checking and builds.
 
+### Verified authentication boundary seam
+- The Fastify API accepts an optional, injected provider-neutral authentication adapter.
+- Protected `GET /api/v1/me` accepts only a runtime-validated active global user identity from that adapter.
+- Tenant IDs, school roles and permissions are not accepted as authenticated-principal claims; they must be resolved separately from trusted school records.
+- With no adapter configured in the server entry point, the endpoint fails closed with 401.
+- API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures.
+- This is an integration seam only: no credential verifier, authentication provider, session lifecycle, account recovery or persisted identity mapping is implemented.
+
 ### Verified student relationship policy foundation
 - Student records are modelled as school-owned records without a required login user ID.
 - Student portal access is optional and requires a separate active, school-scoped account link.
 - Guardian access is tied to an active guardian-to-student-record link, not a student login identity.
 - Teacher access is derived from an active teacher/class/subject/academic-period assignment matched to the student's active enrolment in the same school, class and academic period.
 - Unit tests cover mismatched actors, schools, student records, classes, periods and inactive/revoked relationships.
-- These are pure shared policy functions. They are not yet connected to authenticated API middleware or database-backed repositories.
+- These remain pure shared policy functions. They are not yet connected to authenticated school-data routes or database-backed repositories.
 
 ### Supabase foundation applied and verified
 - Supabase project provisioned with PostgreSQL 17.
@@ -40,7 +48,7 @@
 - The migration is repository-only and has **not** been applied to Supabase. It includes a guard that refuses to guess domain kinds if domain rows already exist.
 
 ### Deliberately not implemented yet
-- Authentication provider and application-user identity mapping.
+- Authentication provider, credential/session lifecycle and application-user identity mapping.
 - Runtime database client, connection pooling and transaction-scoped tenant context.
 - Tenant-aware RLS policies and cross-school database integration tests.
 - Student, guardian, staff, class, academic or finance tables.

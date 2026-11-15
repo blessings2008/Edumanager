@@ -1,8 +1,21 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import type { ApiConfig } from "./config.js";
+import {
+  parseAuthenticatedPrincipal,
+  type AuthenticationAdapter,
+} from "./domain/authentication.js";
 
-export function buildApp(config: ApiConfig, logger: boolean | object = true): FastifyInstance {
+export interface ApiDependencies {
+  /** Optional trusted verifier. No adapter means protected routes deny by default. */
+  authenticateRequest?: AuthenticationAdapter;
+}
+
+export function buildApp(
+  config: ApiConfig,
+  logger: boolean | object = true,
+  dependencies: ApiDependencies = {},
+): FastifyInstance {
   const app = Fastify({
     logger,
     // Forwarded headers are untrusted unless the deployment explicitly lists
@@ -12,7 +25,30 @@ export function buildApp(config: ApiConfig, logger: boolean | object = true): Fa
     requestIdLogLabel: "requestId",
   });
 
+  app.decorateRequest("authenticatedPrincipal", null);
   app.register(cors, { origin: config.webOrigins, credentials: true });
+
+  const requireAuthentication = async (request: FastifyRequest, reply: FastifyReply) => {
+    const adapter = dependencies.authenticateRequest;
+    if (!adapter) {
+      reply.code(401).send({
+        error: "Unauthorized",
+        message: "Authentication is required.",
+      });
+      return;
+    }
+
+    const principal = parseAuthenticatedPrincipal(await adapter(request));
+    if (!principal) {
+      reply.code(401).send({
+        error: "Unauthorized",
+        message: "Authentication is required.",
+      });
+      return;
+    }
+
+    request.authenticatedPrincipal = principal;
+  };
 
   app.get("/health", async () => ({
     status: "ok",
@@ -24,6 +60,12 @@ export function buildApp(config: ApiConfig, logger: boolean | object = true): Fa
     name: "EduManager API",
     version: "0.1.0",
     status: "foundation",
+  }));
+
+  // This endpoint proves only the authenticated global identity. School
+  // membership and tenant context are separate, server-resolved boundaries.
+  app.get("/api/v1/me", { preHandler: requireAuthentication }, async (request) => ({
+    userId: request.authenticatedPrincipal!.userId,
   }));
 
   app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({

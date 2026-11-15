@@ -11,6 +11,10 @@ This document defines minimum expectations for the first implementation. It is n
 - Provide logout, session revocation, and account recovery flows.
 - Rate-limit authentication and recovery endpoints.
 - Never log passwords, session tokens, one-time codes, or secrets.
+- A provider-neutral API authentication adapter must verify credentials server-side and resolve an active global user from trusted persistence.
+- The adapter must not trust user IDs, roles, school IDs, or tenant claims supplied through headers, query parameters, request bodies, or hostnames.
+- The API validates the adapter result and retains only the active global user ID. School membership and tenant context must be resolved separately from trusted records.
+- If no adapter is configured or its result is invalid/inactive, protected endpoints deny access. Do not add a permissive development fallback.
 
 ## Authorisation
 

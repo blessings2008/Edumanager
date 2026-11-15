@@ -102,3 +102,79 @@ test("unapproved CORS origins do not receive credentialed CORS permission", asyn
     await app.close();
   }
 });
+
+test("GET /api/v1/me denies identity headers when no trusted auth adapter is configured", async () => {
+  const app = buildApp(config, false);
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { "x-user-id": "forged-user", "x-school-id": "school-a" },
+    });
+    assert.equal(response.statusCode, 401);
+    assert.deepEqual(response.json(), {
+      error: "Unauthorized",
+      message: "Authentication is required.",
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET /api/v1/me exposes only the global identity returned by the trusted adapter", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({
+      userId: "user-a",
+      userStatus: "active",
+      schoolId: "untrusted-extra-school",
+      role: "school_owner",
+    }),
+  });
+  try {
+    const response = await app.inject({ method: "GET", url: "/api/v1/me" });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { userId: "user-a" });
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET /api/v1/me rejects missing, malformed, blank and inactive principals", async () => {
+  const invalidPrincipals: unknown[] = [
+    null,
+    undefined,
+    {},
+    { userId: "", userStatus: "active" },
+    { userId: " user-a", userStatus: "active" },
+    { userId: "user-a", userStatus: "disabled" },
+  ];
+
+  for (const principal of invalidPrincipals) {
+    const app = buildApp(config, false, {
+      authenticateRequest: async () => principal,
+    });
+    try {
+      const response = await app.inject({ method: "GET", url: "/api/v1/me" });
+      assert.equal(response.statusCode, 401);
+      assert.equal(response.json().error, "Unauthorized");
+    } finally {
+      await app.close();
+    }
+  }
+});
+
+test("GET /api/v1/me does not expose authentication adapter failures", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => {
+      throw new Error("private session token detail");
+    },
+  });
+  try {
+    const response = await app.inject({ method: "GET", url: "/api/v1/me" });
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.json().message, "An unexpected error occurred.");
+    assert.equal(JSON.stringify(response.json()).includes("private session token detail"), false);
+  } finally {
+    await app.close();
+  }
+});
