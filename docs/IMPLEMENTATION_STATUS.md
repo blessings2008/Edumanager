@@ -1,13 +1,18 @@
 # Implementation status
 
-## Current milestone: application foundation
+## Current milestone: API foundation and hardening
 
 ### Added
 - pnpm workspace for the web app, API and shared contracts.
 - React + TypeScript + Vite web application.
-- Fastify + TypeScript API with health and version endpoints.
+- Fastify + TypeScript API split into app construction, configuration and server startup.
+- Runtime configuration validation for API port and allowed web origins.
+- Explicit CORS allowlist supporting multiple configured origins.
+- Consistent 404 and safe 500 responses with request IDs.
+- Initial API health and version endpoints.
+- API tests using Fastify's in-memory injection interface.
+- GitHub Actions workflow for tests, type-checking and builds.
 - Shared role and school-membership contract types.
-- Environment template and repository hygiene files.
 - Responsive public-facing foundation screen.
 
 ### Deliberately not added yet
@@ -17,11 +22,11 @@
 - Student, staff, class or finance tables.
 - Production deployment configuration.
 
-These depend on validating the database and hosting choices. Tenant isolation must be enforced in the API and database, not merely by hiding data in the frontend.
+The database provider and hosting decision still need confirmation. The recommended relational foundation is PostgreSQL, but no provider-specific code or schema has been committed. Tenant isolation must be enforced server-side and at the data layer, not merely by hiding data in the frontend.
 
 ## Local development
 
-Requirements: Node.js 22+ and pnpm 10+.
+Requirements: Node.js 22.12+ and pnpm 10+.
 
 1. Copy .env.example to .env.
 2. Install dependencies with pnpm install.
@@ -29,4 +34,6 @@ Requirements: Node.js 22+ and pnpm 10+.
 4. Web app: http://localhost:5173
 5. API health: http://localhost:4000/health
 
-The GitHub connector can write and inspect repository files, but it has not run install, build or type-check commands. Run those locally or in CI before merging.
+Run checks with pnpm test, pnpm typecheck and pnpm build.
+
+GitHub Actions is configured to run these checks. They must pass before the branch is considered validated and merged.
