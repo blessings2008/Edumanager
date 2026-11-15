@@ -143,6 +143,50 @@ test("GET /api/v1/me exposes only the global identity returned by the trusted ad
   }
 });
 
+test("GET /api/v1/me snapshots accessor-backed identity fields exactly once", async () => {
+  let userIdReads = 0;
+  const principal = {
+    get userId() {
+      userIdReads += 1;
+      return userIdReads === 1 ? "user-a" : "user-b";
+    },
+    get userStatus() {
+      return "active";
+    },
+  };
+
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => principal,
+  });
+  try {
+    const response = await app.inject({ method: "GET", url: "/api/v1/me" });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { userId: "user-a" });
+    assert.equal(userIdReads, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET /api/v1/me rejects principals whose identity accessors throw", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({
+      get userId(): string {
+        throw new Error("private principal getter detail");
+      },
+      userStatus: "active",
+    }),
+  });
+  try {
+    const response = await app.inject({ method: "GET", url: "/api/v1/me" });
+    assert.equal(response.statusCode, 401);
+    assert.equal(response.json().error, "Unauthorized");
+    assert.equal(JSON.stringify(response.json()).includes("private principal getter detail"), false);
+  } finally {
+    await app.close();
+  }
+});
+
 test("GET /api/v1/me rejects missing, malformed, blank and inactive principals", async () => {
   const invalidPrincipals: unknown[] = [
     null,
