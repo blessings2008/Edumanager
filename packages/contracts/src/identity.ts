@@ -25,3 +25,14 @@ export interface SchoolDomainIdentity {
 export interface TenantRequestContext {
   userId: Identifier; schoolId: Identifier; membershipId: Identifier; role: SchoolRole;
 }
+
+/** A verified link between a guardian account and a student in one school. */
+export interface StudentGuardianLinkIdentity {
+  id: Identifier; schoolId: Identifier; guardianUserId: Identifier; studentUserId: Identifier;
+  status: "pending" | "active" | "revoked";
+}
+/** A teacher's active teaching relationship with a student, derived from class/subject assignments. */
+export interface TeacherStudentAssignmentIdentity {
+  id: Identifier; schoolId: Identifier; teacherUserId: Identifier; studentUserId: Identifier;
+  status: "pending" | "active" | "ended";
+}
