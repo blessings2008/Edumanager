@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildApp } from "../src/app.js";
 import { readConfig } from "../src/config.js";
+import { createTenantContextResolver } from "../../../packages/contracts/src/authorization.js";
 import { SCHOOL_ROLES } from "../../../packages/contracts/src/identity.js";
 import { TENANT_SCHOOL_ROLES } from "../src/domain/tenant-authorization.js";
 
@@ -338,6 +339,74 @@ test("school membership resolver failures do not expose internal details", async
     assert.equal(response.statusCode, 500);
     assert.equal(response.json().message, "An unexpected error occurred.");
     assert.equal(JSON.stringify(response.json()).includes("private membership query details"), false);
+  } finally {
+    await app.close();
+  }
+});
+
+
+test("school context route composes trusted membership snapshots and denies another school", async () => {
+  const userId = "a0000000-0000-4000-8000-000000000001";
+  const schoolA = "00000000-0000-4000-8000-000000000002";
+  const schoolB = "00000000-0000-4000-8000-000000000003";
+  const membershipId = "00000000-0000-4000-8000-000000000004";
+  const readerCalls: Array<{ authenticatedUserId: string; requestedSchoolId: string }> = [];
+
+  const resolveTenantContext = createTenantContextResolver({
+    loadTenantMembership: async (input) => {
+      readerCalls.push(input);
+      if (input.authenticatedUserId !== userId || input.requestedSchoolId !== schoolA) {
+        return null;
+      }
+
+      return {
+        user: { id: userId, status: "active" },
+        school: { id: schoolA, status: "active" },
+        membership: {
+          id: membershipId,
+          userId,
+          schoolId: schoolA,
+          role: "teacher",
+          status: "active",
+        },
+      };
+    },
+  });
+
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({
+      userId,
+      userStatus: "active",
+      schoolId: schoolB,
+      role: "school_owner",
+    }),
+    resolveTenantContext,
+  });
+
+  try {
+    const schoolAResponse = await app.inject({
+      method: "GET",
+      url: `/api/v1/schools/${schoolA}/context?schoolId=${schoolB}`,
+      headers: { "x-school-id": schoolB },
+    });
+    assert.equal(schoolAResponse.statusCode, 200);
+    assert.deepEqual(schoolAResponse.json(), { schoolId: schoolA, role: "teacher" });
+
+    const schoolBResponse = await app.inject({
+      method: "GET",
+      url: `/api/v1/schools/${schoolB}/context?schoolId=${schoolA}`,
+      headers: { "x-school-id": schoolA },
+    });
+    assert.equal(schoolBResponse.statusCode, 403);
+    assert.deepEqual(schoolBResponse.json(), {
+      error: "Forbidden",
+      message: "You do not have access to this school.",
+    });
+
+    assert.deepEqual(readerCalls, [
+      { authenticatedUserId: userId, requestedSchoolId: schoolA },
+      { authenticatedUserId: userId, requestedSchoolId: schoolB },
+    ]);
   } finally {
     await app.close();
   }

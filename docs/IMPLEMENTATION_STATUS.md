@@ -29,6 +29,7 @@
 - Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
 - A PostgreSQL membership-reader adapter now performs one parameterized join across the persisted user, school and membership tables. It rejects malformed UUID inputs and returns no snapshot for missing, duplicate or malformed query results; it deliberately returns inactive statuses for the shared policy to reject.
 - Unit tests exercise the SQL parameters, school/user relationship joins, fail-closed result handling and persistence errors through an injected query executor.
+- API integration coverage composes the authenticated school-context route with the shared resolver and a trusted membership-reader fixture: an active School A membership succeeds for School A and is denied for School B despite forged query/header and extra principal claims. This does not replace live database isolation tests.
 - The server entry point does not configure the adapter or resolver. No connection pool, runtime database credentials, live membership lookup or school-data route is connected yet.
 
 ### Verified student relationship policy foundation
