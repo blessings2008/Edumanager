@@ -5,7 +5,9 @@ import type { ApiConfig } from "./config.js";
 export function buildApp(config: ApiConfig, logger: boolean | object = true): FastifyInstance {
   const app = Fastify({
     logger,
-    trustProxy: true,
+    // Forwarded headers are untrusted unless the deployment explicitly lists
+    // the proxy IPs/CIDRs that are allowed to supply them.
+    trustProxy: config.trustedProxies.length > 0 ? config.trustedProxies : false,
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "requestId",
   });
