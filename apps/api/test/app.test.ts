@@ -266,7 +266,7 @@ test("school context resolver receives only authenticated identity and requested
     });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
-    assert.equal(schoolAResponse.headers["cache-control"], "no-store");
+    assert.equal(response.headers["cache-control"], "no-store");
     assert.deepEqual(resolverCalls, [{
       authenticatedUserId: "user-a",
       requestedSchoolId: "school-a",
