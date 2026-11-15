@@ -137,6 +137,7 @@ test("GET /api/v1/me exposes only the global identity returned by the trusted ad
     const response = await app.inject({ method: "GET", url: "/api/v1/me" });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { userId: "user-a" });
+    assert.equal(response.headers["cache-control"], "no-store");
   } finally {
     await app.close();
   }
@@ -265,6 +266,7 @@ test("school context resolver receives only authenticated identity and requested
     });
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
+    assert.equal(schoolAResponse.headers["cache-control"], "no-store");
     assert.deepEqual(resolverCalls, [{
       authenticatedUserId: "user-a",
       requestedSchoolId: "school-a",
