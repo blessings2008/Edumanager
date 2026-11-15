@@ -15,7 +15,7 @@
 
 ### Verified authentication boundary seam
 - The Fastify API accepts an optional, injected provider-neutral authentication adapter.
-- Protected `GET /api/v1/me` accepts only a runtime-validated active global user identity from that adapter.
+- Protected `GET /api/v1/me` accepts only a runtime-validated active global user identity from that adapter and returns `Cache-Control: no-store`.
 - Tenant IDs, school roles and permissions are not accepted as authenticated-principal claims; they must be resolved separately from trusted school records.
 - With no adapter configured in the server entry point, the endpoint fails closed with 401.
 - API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures. Adapter exceptions are normalized to a generic 503 response so provider-supplied status codes and internal messages cannot control the public response.
@@ -23,7 +23,7 @@
 
 ### Verified partial school-membership boundary
 - Added a provider-neutral tenant-context resolver seam after authentication.
-- Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver.
+- Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver; successful context responses also set `Cache-Control: no-store`.
 - The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown resolver fields are discarded.
 - A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403. Resolver exceptions are normalized to a generic 503 response, independent of status codes attached to persistence errors.
 - Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
