@@ -2,7 +2,7 @@ name: EduManager CI
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**", "security/**"]
   pull_request:
     branches: [main, "feat/**"]
 
