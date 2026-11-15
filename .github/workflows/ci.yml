@@ -2,9 +2,10 @@ name: EduManager CI
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**", "security/**"]
   pull_request:
-    branches: [main, "feat/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, "feat/**", "fix/**", "security/**"]
 
 permissions:
   contents: read
