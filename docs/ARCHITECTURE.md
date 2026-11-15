@@ -1,6 +1,6 @@
 # EduManager — Initial Architecture
 
-**Status:** Proposed foundation; implementation decisions will be validated as the first vertical slice is built.
+**Status:** Foundation in progress. The first managed PostgreSQL project is provisioned and the initial tenancy schema is applied.
 
 ## 1. Architecture goals
 
@@ -18,13 +18,13 @@
 | Web application | React + TypeScript + Vite | Familiar, responsive SPA foundation |
 | UI | Tailwind CSS + accessible component primitives | Consistent design without sacrificing accessibility |
 | API | Node.js + TypeScript + Fastify | Typed, lightweight API with schema validation |
-| Database | PostgreSQL | Relational integrity for school, academic, and finance records |
-| Data access | Prisma ORM, with reviewed SQL migrations where needed | Typed queries and explicit schema history |
-| Authentication | Server-managed sessions using secure, HttpOnly cookies | Avoid exposing long-lived credentials to browser storage |
-| File storage | S3-compatible object storage | Student documents and school assets kept outside the database |
-| Hosting | Cloud deployment; API and web app can be deployed independently | No dependency on the not-yet-ready local server |
+| Database | Supabase-hosted PostgreSQL 17 | Managed PostgreSQL, backups and integrated database tooling |
+| Data access | SQL-first migration history; ORM decision pending | Avoid locking schema decisions to an unreviewed data-access layer |
+| Authentication | Supabase Auth vs server-managed sessions — decision pending | Must align identity, API session handling and database RLS |
+| File storage | Supabase Storage vs S3-compatible storage — decision pending | Compare access policies, pricing, backup/export and operational needs |
+| Hosting | Cloud deployment; API and web app can be deployed independently | No dependency on the user's local server |
 
-This is a starting proposal, not a reason to ignore evidence. Before adding production infrastructure, confirm provider pricing, regional availability, backups, data export, and operational requirements.
+Provider-specific choices must be checked against current pricing, regional availability, backup and recovery options, data export and operational requirements before production launch.
 
 ## 3. Application boundaries
 
@@ -37,9 +37,8 @@ apps/
 packages/
   contracts/           # Shared request/response schemas and types
   config/              # Shared lint, TypeScript and environment conventions
-prisma/
-  schema.prisma
-  migrations/
+supabase/
+  migrations/          # Versioned SQL schema changes
 docs/
   PRODUCT_VISION.md
   ARCHITECTURE.md
@@ -54,7 +53,7 @@ The browser is an untrusted client. It may display controls based on permissions
 Use a shared PostgreSQL database with a shared schema initially. Every school-owned record must carry a non-null `school_id` (or be linked through a school-scoped parent record).
 
 Core identity concepts:
-- `users`: global login identity.
+- `users`: global application identity record; mapping to the chosen authentication provider is not implemented yet.
 - `schools`: tenant record.
 - `school_memberships`: user-to-school relationship, membership status, and school-scoped role.
 - `school_domains`: verified hostnames mapped to a school.
@@ -123,8 +122,9 @@ Every meaningful change should pass:
 
 ## 10. Open decisions
 
-These must be resolved before production deployment:
-- Final hosting and managed PostgreSQL provider.
+- Authentication architecture and mapping of application users to authentication identities.
+- Runtime database access strategy that preserves RLS (never expose privileged credentials to the browser).
+- ORM/data-access layer and connection pooling.
 - Email/SMS provider and message-consent policy.
 - Data retention, backup schedule, and recovery objectives.
 - School subscription and billing model.

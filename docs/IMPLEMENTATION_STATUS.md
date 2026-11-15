@@ -1,33 +1,41 @@
 # Implementation status
 
-## Current milestone: trusted tenant context and resource relationships
+## Current milestone: trusted tenant context and database foundation
 
-### Added
+### Application foundation already present
 - pnpm workspace for the web app, API and shared contracts.
 - React + TypeScript + Vite web application.
 - Fastify + TypeScript API with validated configuration, explicit CORS allowlist, safe error responses and request IDs.
 - API tests for health/version routes, 404 handling and configuration validation.
 - Shared identity contracts for users, schools, memberships, domains and trusted tenant request context.
-- A pure platform-subdomain resolver with tests for valid slugs, platform hosts, malformed hosts, nested subdomains and unrelated domains.
-- Tenancy and identity security documentation covering request resolution, membership-scoped roles, custom-domain verification and data isolation.
-- Shared fail-closed membership validation requiring an active user, school and matching active membership.
-- Trusted tenant-context builder that emits context only from matching active authentication, school and membership records.
-- A first coarse role-permission matrix for school administrators, staff, teachers, students and guardians.
-- Authorization tests for mismatched identities, wrong-school memberships, inactive states and role boundaries.\n- Resource-level student-record access policy that verifies guardian and teacher relationships against actor, student, school and active status.\n- Hardened hostname parsing that rejects explicit ports (including default port 80), URL syntax, escapes, malformed labels and invalid host characters.
+- Platform-subdomain resolver and hostname validation tests.
+- Shared fail-closed membership validation and trusted tenant-context builder.
+- Coarse role-permission matrix and resource-level student access policy building blocks.
 - GitHub Actions workflow for tests, type-checking and builds.
 
-### Deliberately not added yet
-- Database ORM or migrations.
-- Authentication/session storage.
-- Tenant resolution middleware wired into requests.
-- Database-backed repositories and queries for guardian/student and teacher/class relationships.
-- Database-backed custom-domain lookup.
-- Student, staff, class, academic or finance persistence.
+### Supabase foundation applied and verified
+- Supabase project provisioned with PostgreSQL 17.
+- Migration `20261111174756_initial_school_tenancy_foundation` applied.
+- Created `users`, `schools`, `school_memberships`, `school_domains` and `audit_events`.
+- Added school/user membership uniqueness, status and role constraints, hostname uniqueness, lookup indexes and updated-at triggers.
+- Enabled RLS on all five tables.
+- Revoked browser-role access and granted table access only to the Supabase `service_role`; no end-user RLS policies are installed yet.
+- Confirmed all five tables exist and RLS is enabled; all tables currently contain zero rows.
+- Security advisor reports only the expected informational finding that RLS is enabled without policies. This is intentional until the auth and tenant policy model is implemented.
+- Performance advisor reports unused indexes; the database is empty, so usage cannot yet be meaningfully evaluated.
+
+### Deliberately not implemented yet
+- Authentication provider and application-user identity mapping.
+- Runtime database client, connection pooling and transaction-scoped tenant context.
+- Tenant-aware RLS policies and cross-school database tests.
+- Student, guardian, staff, class, academic or finance tables.
+- Database-backed repositories and API routes.
 - Production deployment configuration.
 
-The recommended relational foundation remains PostgreSQL, but the provider and hosting decision has not been confirmed. No provider-specific code or schema has been committed. The hostname resolver is not an authentication mechanism. The shared membership, context and permission functions are policy building blocks, not yet wired into route middleware. School data routes must wait for trusted authentication, resource-level relationship checks and tenant-scoped persistence.
+The database foundation is not a production-ready application data layer. Do not enable browser access or use a privileged service-role credential as a substitute for user authorization. Before student or school data is introduced, implement authentication, tenant-scoped runtime access, resource relationship checks, RLS policies and cross-tenant integration tests.
 
 ## Local development
+
 Requirements: Node.js 22.12+ and pnpm 10+.
 
 1. Copy .env.example to .env.
@@ -36,4 +44,4 @@ Requirements: Node.js 22.12+ and pnpm 10+.
 4. Web app: http://localhost:5173
 5. API health: http://localhost:4000/health
 
-Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pass before the branch is considered validated and merged.
+Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pass before a branch is considered validated and merged.
