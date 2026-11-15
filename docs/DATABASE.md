@@ -55,6 +55,27 @@ This is a deliberate locked state, not a completed authorization implementation.
 
 Migrations may use privileged database credentials in a controlled deployment environment. Application runtime credentials must be separate from migration credentials.
 
+## Transaction-scoped tenant context primitive
+
+The API now contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
+
+1. Checks out one connection from an injected pool.
+2. Starts a transaction.
+3. Installs the validated user, school and membership IDs with parameterized `set_config(..., true)` calls.
+4. Runs the supplied repository work on that same connection.
+5. Commits on success, or rolls back on failure, then releases the connection.
+6. Marks the connection for disposal if rollback itself fails.
+
+The settings are transaction-local and are cleared by PostgreSQL at transaction end, preventing one request's tenant context from leaking through a reused pooled connection. The helper deliberately does not set a role or copy a role claim into the database context; policies must derive permissions from persisted school membership.
+
+**This helper is not an RLS policy and does not make a privileged connection safe.** It is not wired into the server entry point and has no configured pool or runtime credentials. Before using it for tenant-owned queries:
+
+- Use a least-privilege runtime role that is neither superuser nor granted `BYPASSRLS`.
+- Ensure the runtime role does not own tenant tables unless those tables explicitly use `FORCE ROW LEVEL SECURITY`.
+- Add policies that validate the transaction-local user and school against active persisted membership; never trust a role supplied by the request.
+- Keep all tenant-owned operations within the transaction callback so they use the same checked-out connection and transaction-local context.
+- Add real PostgreSQL integration tests for cross-school reads, inserts, updates, deletes and relationship changes.
+
 ## Important modelling decisions
 
 - A student is a school record, not necessarily a login account. Student profiles and login identities must remain separate.
@@ -68,7 +89,7 @@ Migrations may use privileged database credentials in a controlled deployment en
 
 1. Review and apply the schema-alignment migration after approval, then verify it against a clean database.
 2. Decide the authentication architecture and identity mapping.
-3. Design the runtime access strategy that preserves the caller's identity and tenant context.
+3. Design and provision the least-privilege runtime role and connection strategy that preserves the caller's identity and tenant context.
 4. Add academic-year, term, class, student, guardian-link, staff and teacher-assignment tables.
 5. Add RLS and database-level tenant isolation tests before connecting school-data routes.
 6. Add backups, restore verification, audit retention and operational monitoring before pilot use.
