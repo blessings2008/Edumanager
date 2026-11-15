@@ -30,7 +30,7 @@
 - A PostgreSQL membership-reader adapter now performs one parameterized join across the persisted user, school and membership tables. It rejects malformed UUID inputs and returns no snapshot for missing, duplicate or malformed query results; it deliberately returns inactive statuses for the shared policy to reject.
 - Unit tests exercise the SQL parameters, school/user relationship joins, fail-closed result handling and persistence errors through an injected query executor.
 - API integration coverage composes the authenticated school-context route with the shared resolver and a trusted membership-reader fixture: an active School A membership succeeds for School A and is denied for School B despite forged query/header and extra principal claims. This does not replace live database isolation tests.
-- Added an unconfigured PostgreSQL transaction helper that begins one transaction, installs the validated user/school/membership IDs through parameterized transaction-local settings, runs the callback, and commits or rolls back before releasing the checked-out connection. Tests cover successful commit, work failure, context-installation failure, malformed context and failed rollback connection disposal.
+- Added an unconfigured PostgreSQL transaction helper that snapshots the validated user/school/membership identifiers before awaiting pool acquisition, installs them through parameterized transaction-local settings, runs the callback, and commits or rolls back before releasing the checked-out connection. Tests cover successful commit, context snapshotting against caller mutation, work failure, context-installation failure, malformed context and failed rollback connection disposal.
 - The server entry point does not configure the membership adapter, transaction helper or a connection pool. No live membership lookup or school-data route is connected yet. The transaction-local settings are only a context propagation primitive; they do not enforce RLS or make a privileged database role safe.
 
 ### Verified student relationship policy foundation
@@ -48,7 +48,7 @@
 - Added school/user membership uniqueness, status and role constraints, hostname uniqueness, lookup indexes and updated-at triggers.
 - Enabled RLS on all five tables.
 - Revoked browser-role access and granted table access only to the Supabase `service_role`; no end-user RLS policies are installed yet.
-- Confirmed all five tables exist and RLS is enabled; all tables currently contain zero rows.
+- Confirmed all five tables exist and RLS is enabled; all five tables currently contain zero rows.
 - Security advisor reports only the expected informational finding that RLS is enabled without policies. This is intentional until the auth and tenant policy model is implemented.
 - Performance advisor reports unused indexes; the database is empty, so usage cannot yet be meaningfully evaluated.
 
