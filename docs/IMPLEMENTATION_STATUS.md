@@ -18,7 +18,7 @@
 - Protected `GET /api/v1/me` accepts only a runtime-validated active global user identity from that adapter and returns `Cache-Control: no-store`.
 - Tenant IDs, school roles and permissions are not accepted as authenticated-principal claims; they must be resolved separately from trusted school records.
 - With no adapter configured in the server entry point, the endpoint fails closed with 401.
-- API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures. Adapter exceptions are normalized to a generic 503 response so provider-supplied status codes and internal messages cannot control the public response.
+- API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures. Adapter exceptions are normalized to a generic 503 response so provider-supplied status codes and internal messages cannot control the public response. Runtime principal parsing snapshots identity fields once and rejects throwing accessors, preventing mutable adapter objects from changing the user ID between validation and use.
 - This is an integration seam only: no credential verifier, authentication provider, session lifecycle, account recovery or persisted identity mapping is implemented.
 
 ### Verified partial school-membership boundary
