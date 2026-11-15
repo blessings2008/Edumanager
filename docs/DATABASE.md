@@ -40,19 +40,6 @@ The migration deliberately aborts if `school_domains` already contains rows, bec
 
 The API test suite includes static schema-contract checks that compare migration constraint values with the shared TypeScript constants. These checks catch vocabulary drift but are not a substitute for applying the migration to a clean PostgreSQL database and running database integration tests.
 
-
-### Migration review record — 2026-11-15
-
-A static review of the initial schema, shared identity contracts and follow-up migration confirms that the migration:
-
-- Maps the existing `onboarding` school status to `provisioning` before installing the updated school-status constraint.
-- Maps the existing `staff` membership role to `school_staff` before installing the shared role vocabulary.
-- Preserves the existing membership lifecycle values and adds the shared role/status constraints.
-- Adds `school_domains.kind` only after an explicit guard rejects any existing domain rows, avoiding guessed domain classifications.
-- Adds the nullable `users.email_verified_at` field required by the shared user contract.
-
-This was a repository-level review only. The migration remains **unapplied**. Before any application, verify live row counts and domain rows, take/confirm a recoverable backup, test the migration against a clean PostgreSQL database, and obtain explicit founder approval. Do not configure the membership reader or tenant-owned runtime queries until the schema change and tenant-safe database access design are verified.
-
 ## Access boundary
 
 RLS is enabled on all five initial tables. The initial migration revokes table privileges from `PUBLIC`, `anon` and `authenticated`, and grants table access to Supabase `service_role` only. No user-facing RLS policies are installed yet.
@@ -70,14 +57,15 @@ Migrations may use privileged database credentials in a controlled deployment en
 
 ## Transaction-scoped tenant context primitive
 
-The API now contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
+The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
 
-1. Checks out one connection from an injected pool.
-2. Starts a transaction.
-3. Installs the validated user, school and membership IDs with parameterized `set_config(..., true)` calls.
-4. Runs the supplied repository work on that same connection.
-5. Commits on success, or rolls back on failure, then releases the connection.
-6. Marks the connection for disposal if rollback itself fails.
+1. Reads and validates the user, school and membership identifiers into a detached snapshot before awaiting pool acquisition, so later mutation of the caller-owned context cannot change the identity installed in the transaction.
+2. Checks out one connection from an injected pool.
+3. Starts a transaction.
+4. Installs the validated identifiers with parameterized `set_config(..., true)` calls.
+5. Runs the supplied repository work on that same connection.
+6. Commits on success, or rolls back on failure, then releases the connection.
+7. Marks the connection for disposal if rollback itself fails.
 
 The settings are transaction-local and are cleared by PostgreSQL at transaction end, preventing one request's tenant context from leaking through a reused pooled connection. The helper deliberately does not set a role or copy a role claim into the database context; policies must derive permissions from persisted school membership.
 
