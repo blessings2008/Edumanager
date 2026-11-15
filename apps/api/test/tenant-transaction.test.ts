@@ -49,6 +49,35 @@ test("runs tenant work in one transaction with transaction-local identity settin
   assert.equal(released, true);
 });
 
+test("snapshots validated tenant identity before awaiting a pooled connection", async () => {
+  const mutableContext: TenantRequestContext = { ...context };
+  const calls: Array<{ sql: string; values?: unknown[] }> = [];
+  let resolveConnection!: (connection: TenantTransactionConnection) => void;
+  const pendingConnection = new Promise<TenantTransactionConnection>((resolve) => {
+    resolveConnection = resolve;
+  });
+  const connection: TenantTransactionConnection = {
+    query: async (sql, values) => {
+      calls.push({ sql, values });
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  const transaction = withTenantTransaction({
+    connect: () => pendingConnection,
+  }, mutableContext, async () => "completed");
+
+  // Mutate the caller-owned object while pool acquisition is suspended.
+  mutableContext.userId = "user-b";
+  mutableContext.schoolId = "school-b";
+  mutableContext.membershipId = "membership-b";
+
+  resolveConnection(connection);
+  assert.equal(await transaction, "completed");
+  assert.deepEqual(calls[1].values, ["user-a", "school-a", "membership-a"]);
+});
+
 test("rolls back tenant work failures and preserves the original error", async () => {
   const calls: string[] = [];
   let released = false;
