@@ -142,3 +142,27 @@ test("rejects malformed tenant contexts before checking out a connection", async
 
   assert.equal(connectCount, 0);
 });
+
+test("discards a connection when BEGIN fails before tenant work starts", async () => {
+  const failure = new Error("connection lost during BEGIN");
+  let workCalled = false;
+  let releaseError: Error | undefined;
+  const connection: TenantTransactionConnection = {
+    query: async (sql) => {
+      if (sql === "BEGIN") throw failure;
+      return { rows: [] };
+    },
+    release: (error) => { releaseError = error; },
+  };
+
+  await assert.rejects(
+    withTenantTransaction({ connect: async () => connection }, context, async () => {
+      workCalled = true;
+      return "unreachable";
+    }),
+    (error) => error === failure,
+  );
+
+  assert.equal(workCalled, false);
+  assert.equal(releaseError, failure);
+});
