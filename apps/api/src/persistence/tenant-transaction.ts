@@ -32,32 +32,58 @@ function isNonBlankString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.trim() === value;
 }
 
-function isTenantRequestContext(value: unknown): value is TenantRequestContext {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+/**
+ * Read each context field once and detach it from the caller-owned object.
+ * This prevents mutation while pool.connect() is pending from changing the
+ * identity installed into the transaction after validation.
+ */
+function snapshotTenantRequestContext(value: unknown): TenantRequestContext | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
 
-  const candidate = value as Record<string, unknown>;
-  return isNonBlankString(candidate.userId)
-    && isNonBlankString(candidate.schoolId)
-    && isNonBlankString(candidate.membershipId)
-    && typeof candidate.role === "string"
-    && TENANT_SCHOOL_ROLES.includes(candidate.role as TenantRequestContext["role"]);
+  try {
+    const candidate = value as Record<string, unknown>;
+    const userId = candidate.userId;
+    const schoolId = candidate.schoolId;
+    const membershipId = candidate.membershipId;
+    const role = candidate.role;
+
+    if (!isNonBlankString(userId)
+      || !isNonBlankString(schoolId)
+      || !isNonBlankString(membershipId)
+      || typeof role !== "string"
+      || !TENANT_SCHOOL_ROLES.includes(role as TenantRequestContext["role"])) {
+      return null;
+    }
+
+    return {
+      userId,
+      schoolId,
+      membershipId,
+      role: role as TenantRequestContext["role"],
+    };
+  } catch {
+    // Accessor-backed or otherwise hostile context objects fail closed.
+    return null;
+  }
 }
 
 /**
  * Executes tenant-owned database work on one checked-out connection.
  *
- * The validated context is installed with set_config(..., true) after BEGIN,
- * so PostgreSQL clears it automatically at COMMIT or ROLLBACK before the
- * connection returns to the pool. This helper does not itself enforce RLS:
- * the pool must use a least-privilege role without SUPERUSER/BYPASSRLS, and
- * tenant tables must have policies that validate these settings.
+ * The validated context is snapshotted before the first asynchronous wait,
+ * then installed with set_config(..., true) after BEGIN. PostgreSQL clears it
+ * automatically at COMMIT or ROLLBACK before the connection returns to the
+ * pool. This helper does not itself enforce RLS: the pool must use a
+ * least-privilege role without SUPERUSER/BYPASSRLS, and tenant tables must
+ * have policies that validate these settings.
  */
 export async function withTenantTransaction<T>(
   pool: TenantTransactionPool,
   context: TenantRequestContext,
   work: (connection: TenantTransactionConnection) => Promise<T>,
 ): Promise<T> {
-  if (!isTenantRequestContext(context)) {
+  const tenantContext = snapshotTenantRequestContext(context);
+  if (!tenantContext) {
     throw new TypeError("A validated tenant request context is required.");
   }
 
@@ -70,9 +96,9 @@ export async function withTenantTransaction<T>(
     transactionOpen = true;
 
     await connection.query(SET_TENANT_TRANSACTION_CONTEXT_SQL, [
-      context.userId,
-      context.schoolId,
-      context.membershipId,
+      tenantContext.userId,
+      tenantContext.schoolId,
+      tenantContext.membershipId,
     ]);
 
     const result = await work(connection);
