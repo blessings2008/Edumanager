@@ -90,6 +90,12 @@ export async function withTenantTransaction<T>(
           ? rollbackError
           : new Error("Tenant transaction rollback failed.");
       }
+    } else {
+      // BEGIN did not complete, so the connection's transaction state is
+      // uncertain (for example, a network failure during the command).
+      releaseError = error instanceof Error
+        ? error
+        : new Error("Tenant transaction could not be started.");
     }
     throw error;
   } finally {
