@@ -26,13 +26,54 @@ export interface TenantRequestContext {
   userId: Identifier; schoolId: Identifier; membershipId: Identifier; role: SchoolRole;
 }
 
-/** A verified link between a guardian account and a student in one school. */
-export interface StudentGuardianLinkIdentity {
-  id: Identifier; schoolId: Identifier; guardianUserId: Identifier; studentUserId: Identifier;
+/**
+ * A student is a school-owned record. It does not contain or require a login
+ * identity; a portal account is an optional, separately verified relationship.
+ */
+export interface StudentRecordIdentity {
+  id: Identifier;
+  schoolId: Identifier;
+  status: "active" | "inactive" | "withdrawn" | "graduated";
+}
+
+/** Optional link that permits a login account to access one student's portal. */
+export interface StudentPortalAccountLinkIdentity {
+  id: Identifier;
+  schoolId: Identifier;
+  studentId: Identifier;
+  userId: Identifier;
   status: "pending" | "active" | "revoked";
 }
-/** A teacher's active teaching relationship with a student, derived from class/subject assignments. */
-export interface TeacherStudentAssignmentIdentity {
-  id: Identifier; schoolId: Identifier; teacherUserId: Identifier; studentUserId: Identifier;
+
+/** A guardian may have active links to multiple student records. */
+export interface StudentGuardianLinkIdentity {
+  id: Identifier;
+  schoolId: Identifier;
+  guardianUserId: Identifier;
+  studentId: Identifier;
+  status: "pending" | "active" | "revoked";
+}
+
+/**
+ * Teacher access is scoped through a class, subject and academic period.
+ * Student access is derived by matching this assignment to an active enrolment.
+ */
+export interface TeacherClassAssignmentIdentity {
+  id: Identifier;
+  schoolId: Identifier;
+  teacherUserId: Identifier;
+  classId: Identifier;
+  subjectId: Identifier;
+  academicPeriodId: Identifier;
   status: "pending" | "active" | "ended";
+}
+
+/** Historical school enrolment; the student record remains independent of login. */
+export interface StudentEnrolmentIdentity {
+  id: Identifier;
+  schoolId: Identifier;
+  studentId: Identifier;
+  classId: Identifier;
+  academicPeriodId: Identifier;
+  status: "pending" | "active" | "completed" | "withdrawn";
 }

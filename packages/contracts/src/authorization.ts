@@ -1,4 +1,11 @@
-import type { SchoolRole, TenantRequestContext } from "./identity.js";
+import type {
+  SchoolRole,
+  StudentGuardianLinkIdentity,
+  StudentPortalAccountLinkIdentity,
+  StudentEnrolmentIdentity,
+  TeacherClassAssignmentIdentity,
+  TenantRequestContext,
+} from "./identity.js";
 
 export type SchoolPermission =
   | "school:read" | "school:manage" | "users:manage"
@@ -74,53 +81,80 @@ export function buildTenantRequestContext(input: TrustedTenantContextInput): Ten
   };
 }
 
-export interface StudentGuardianRelationship {
-  schoolId: string;
-  guardianUserId: string;
-  studentUserId: string;
-  status: "pending" | "active" | "revoked";
-}
+export type StudentGuardianRelationship = Pick<
+  StudentGuardianLinkIdentity, "schoolId" | "guardianUserId" | "studentId" | "status"
+>;
 
-export interface TeacherStudentAssignment {
-  schoolId: string;
-  teacherUserId: string;
-  studentUserId: string;
-  status: "pending" | "active" | "ended";
-}
+export type StudentPortalAccountLink = Pick<
+  StudentPortalAccountLinkIdentity, "schoolId" | "studentId" | "userId" | "status"
+>;
+
+export type TeacherClassAssignment = Pick<
+  TeacherClassAssignmentIdentity,
+  "schoolId" | "teacherUserId" | "classId" | "subjectId" | "academicPeriodId" | "status"
+>;
+
+export type StudentEnrolment = Pick<
+  StudentEnrolmentIdentity, "schoolId" | "studentId" | "classId" | "academicPeriodId" | "status"
+>;
 
 export interface StudentRecordAccessInput {
   role: SchoolRole;
   actorUserId: string;
   schoolId: string;
-  studentUserId: string;
+  studentId: string;
   action: "read" | "write";
+  studentPortalAccountLinks: readonly StudentPortalAccountLink[];
   guardianRelationships: readonly StudentGuardianRelationship[];
-  teacherAssignments: readonly TeacherStudentAssignment[];
+  teacherAssignments: readonly TeacherClassAssignment[];
+  studentEnrolments: readonly StudentEnrolment[];
 }
 
 /**
  * Resource-level gate for an individual student record.
- * Call after tenant membership and coarse permission checks. Relationship
- * collections must come from trusted, school-scoped server-side queries.
+ * Call after tenant membership and coarse permission checks. Every relationship
+ * collection must come from trusted, school-scoped server-side queries.
+ *
+ * Student login is optional: self-access requires a separate active account
+ * link. Guardian access uses a student-record link. Teacher access is derived
+ * from an active class/subject/period assignment plus an active enrolment in
+ * that same class and academic period.
  */
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
-  if (!input.actorUserId || !input.schoolId || !input.studentUserId) return false;
+  if (!input.actorUserId.trim() || !input.schoolId.trim() || !input.studentId.trim()) return false;
 
   if (input.role === "school_admin" || input.role === "school_staff") {
     return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
   }
+
   if (input.action !== "read") return false;
-  if (input.role === "student") return input.actorUserId === input.studentUserId;
+
+  if (input.role === "student") {
+    return input.studentPortalAccountLinks.some((link) =>
+      link.status === "active" && link.schoolId === input.schoolId
+      && link.userId === input.actorUserId && link.studentId === input.studentId);
+  }
 
   if (input.role === "guardian") {
     return input.guardianRelationships.some((link) =>
       link.status === "active" && link.schoolId === input.schoolId
-      && link.guardianUserId === input.actorUserId && link.studentUserId === input.studentUserId);
+      && link.guardianUserId === input.actorUserId && link.studentId === input.studentId);
   }
+
   if (input.role === "teacher") {
     return input.teacherAssignments.some((assignment) =>
       assignment.status === "active" && assignment.schoolId === input.schoolId
-      && assignment.teacherUserId === input.actorUserId && assignment.studentUserId === input.studentUserId);
+      && assignment.teacherUserId === input.actorUserId
+      && assignment.classId.trim().length > 0
+      && assignment.subjectId.trim().length > 0
+      && assignment.academicPeriodId.trim().length > 0
+      && input.studentEnrolments.some((enrolment) =>
+        enrolment.status === "active" && enrolment.schoolId === input.schoolId
+        && enrolment.studentId === input.studentId
+        && enrolment.classId.trim().length > 0 && enrolment.classId === assignment.classId
+        && enrolment.academicPeriodId.trim().length > 0
+        && enrolment.academicPeriodId === assignment.academicPeriodId));
   }
+
   return false;
 }
