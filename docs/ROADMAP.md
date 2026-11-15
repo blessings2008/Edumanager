@@ -14,8 +14,8 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 **Exit criteria:** the first implementation can begin without unresolved foundational decisions that would force a major rewrite.
 
 ## Phase 1 — Application foundation
-- [ ] Create web and API applications.
-- [ ] Add shared contracts and environment validation.
+- [x] Create web and API applications.
+- [x] Add shared contracts and environment validation.
 - [ ] Set up PostgreSQL and a repeatable migration workflow.
 - [ ] Implement users, schools, memberships, and school onboarding.
 - [ ] Implement authentication, sessions, and account recovery.
