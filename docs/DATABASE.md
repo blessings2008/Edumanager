@@ -57,14 +57,15 @@ Migrations may use privileged database credentials in a controlled deployment en
 
 ## Transaction-scoped tenant context primitive
 
-The API now contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
+The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
 
-1. Checks out one connection from an injected pool.
-2. Starts a transaction.
-3. Installs the validated user, school and membership IDs with parameterized `set_config(..., true)` calls.
-4. Runs the supplied repository work on that same connection.
-5. Commits on success, or rolls back on failure, then releases the connection.
-6. Marks the connection for disposal if rollback itself fails.
+1. Reads and validates the user, school and membership identifiers into a detached snapshot before awaiting pool acquisition, so later mutation of the caller-owned context cannot change the identity installed in the transaction.
+2. Checks out one connection from an injected pool.
+3. Starts a transaction.
+4. Installs the validated identifiers with parameterized `set_config(..., true)` calls.
+5. Runs the supplied repository work on that same connection.
+6. Commits on success, or rolls back on failure, then releases the connection.
+7. Marks the connection for disposal if rollback itself fails.
 
 The settings are transaction-local and are cleared by PostgreSQL at transaction end, preventing one request's tenant context from leaking through a reused pooled connection. The helper deliberately does not set a role or copy a role claim into the database context; policies must derive permissions from persisted school membership.
 
