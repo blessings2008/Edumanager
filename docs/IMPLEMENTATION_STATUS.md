@@ -21,6 +21,13 @@
 - API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures.
 - This is an integration seam only: no credential verifier, authentication provider, session lifecycle, account recovery or persisted identity mapping is implemented.
 
+### Verified partial school-membership boundary
+- Added a provider-neutral tenant-context resolver seam after authentication.
+- Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver.
+- The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown resolver fields are discarded.
+- A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403.
+- The server entry point does not configure a resolver. No database membership query or school-data route is connected yet.
+
 ### Verified student relationship policy foundation
 - Student records are modelled as school-owned records without a required login user ID.
 - Student portal access is optional and requires a separate active, school-scoped account link.

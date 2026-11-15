@@ -5,10 +5,16 @@ import {
   parseAuthenticatedPrincipal,
   type AuthenticationAdapter,
 } from "./domain/authentication.js";
+import {
+  parseTenantRequestContext,
+  type TenantContextResolver,
+} from "./domain/tenant-authorization.js";
 
 export interface ApiDependencies {
   /** Optional trusted verifier. No adapter means protected routes deny by default. */
   authenticateRequest?: AuthenticationAdapter;
+  /** Server-side membership lookup. It must use trusted persistence and fail closed. */
+  resolveTenantContext?: TenantContextResolver;
 }
 
 export function buildApp(
@@ -26,6 +32,7 @@ export function buildApp(
   });
 
   app.decorateRequest("authenticatedPrincipal", null);
+  app.decorateRequest("tenantContext", null);
   app.register(cors, { origin: config.webOrigins, credentials: true });
 
   const requireAuthentication = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -50,6 +57,55 @@ export function buildApp(
     request.authenticatedPrincipal = principal;
   };
 
+  const requireTenantContext = async (request: FastifyRequest, reply: FastifyReply) => {
+    const principal = request.authenticatedPrincipal;
+    if (!principal) {
+      reply.code(401).send({
+        error: "Unauthorized",
+        message: "Authentication is required.",
+      });
+      return;
+    }
+
+    // A path school ID is only a requested scope. It never grants access by itself.
+    const { schoolId } = request.params as { schoolId?: unknown };
+    if (typeof schoolId !== "string" || !schoolId || schoolId.trim() !== schoolId) {
+      reply.code(400).send({
+        error: "Bad Request",
+        message: "A valid school identifier is required.",
+      });
+      return;
+    }
+
+    const resolver = dependencies.resolveTenantContext;
+    if (!resolver) {
+      reply.code(503).send({
+        error: "Service Unavailable",
+        message: "School access is not configured.",
+      });
+      return;
+    }
+
+    const context = parseTenantRequestContext(
+      await resolver({
+        authenticatedUserId: principal.userId,
+        requestedSchoolId: schoolId,
+      }),
+      principal.userId,
+      schoolId,
+    );
+
+    if (!context) {
+      reply.code(403).send({
+        error: "Forbidden",
+        message: "You do not have access to this school.",
+      });
+      return;
+    }
+
+    request.tenantContext = context;
+  };
+
   app.get("/health", async () => ({
     status: "ok",
     service: "edumanager-api",
@@ -67,6 +123,17 @@ export function buildApp(
   app.get("/api/v1/me", { preHandler: requireAuthentication }, async (request) => ({
     userId: request.authenticatedPrincipal!.userId,
   }));
+
+  // The resolver must verify the active user, school and membership in trusted
+  // persistence. The route parameter is a selector, never an authorization claim.
+  app.get(
+    "/api/v1/schools/:schoolId/context",
+    { preHandler: [requireAuthentication, requireTenantContext] },
+    async (request) => ({
+      schoolId: request.tenantContext!.schoolId,
+      role: request.tenantContext!.role,
+    }),
+  );
 
   app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({
     error: "Not Found",

@@ -15,6 +15,8 @@ This document defines minimum expectations for the first implementation. It is n
 - The adapter must not trust user IDs, roles, school IDs, or tenant claims supplied through headers, query parameters, request bodies, or hostnames.
 - The API validates the adapter result and retains only the active global user ID. School membership and tenant context must be resolved separately from trusted records.
 - If no adapter is configured or its result is invalid/inactive, protected endpoints deny access. Do not add a permissive development fallback.
+- A school ID in a route path is only a requested scope. Resolve membership using the authenticated global user ID and trusted user, school and membership records; never accept a client-supplied role or membership ID.
+- The API must reject a tenant context unless its user and school IDs match the authenticated principal and requested scope, and its membership ID and role are valid. If the membership resolver is absent, the route remains unavailable rather than granting access.
 
 ## Authorisation
 
