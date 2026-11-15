@@ -22,11 +22,27 @@ Migration: `20261111174756_initial_school_tenancy_foundation.sql`
 | `school_domains` | Unique school hostnames and verification lifecycle |
 | `audit_events` | Initial audit-event storage structure |
 
-The migration adds constraints for role/status values, unique school slugs, one membership per user per school, unique hostnames and one primary domain per school. It also adds common lookup indexes and update timestamps for mutable records.
+The initial migration adds constraints for role/status values, unique school slugs, one membership per user per school, unique hostnames and one primary domain per school. It also adds common lookup indexes and update timestamps for mutable records.
+
+## Pending schema alignment migration
+
+File: `20261112153700_align_identity_schema_contracts.sql`
+
+This follow-up migration is present in the feature branch but has **not** been applied to the Supabase project. It:
+
+- Renames the persisted school lifecycle value `onboarding` to `provisioning`.
+- Renames the membership role `staff` to `school_staff`, while preserving the distinct `school_owner` role.
+- Reasserts the membership status values, including `revoked`.
+- Adds the explicit `platform_subdomain` / `custom` domain kind.
+- Adds `users.email_verified_at`.
+
+The migration deliberately aborts if `school_domains` already contains rows, because the old schema has no reliable way to infer whether an existing hostname is a platform subdomain or custom domain. Existing rows must be classified explicitly rather than guessed.
+
+The API test suite includes static schema-contract checks that compare migration constraint values with the shared TypeScript constants. These checks catch vocabulary drift but are not a substitute for applying the migration to a clean PostgreSQL database and running database integration tests.
 
 ## Access boundary
 
-RLS is enabled on all five tables. The migration revokes table privileges from `PUBLIC`, `anon` and `authenticated`, and grants table access to Supabase `service_role` only. No user-facing RLS policies exist yet.
+RLS is enabled on all five initial tables. The initial migration revokes table privileges from `PUBLIC`, `anon` and `authenticated`, and grants table access to Supabase `service_role` only. No user-facing RLS policies are installed yet.
 
 This is a deliberate locked state, not a completed authorization implementation. Do not add real student or school data until all of the following exist:
 
@@ -50,8 +66,9 @@ Migrations may use privileged database credentials in a controlled deployment en
 
 ## Next database milestones
 
-1. Decide Supabase Auth versus the existing proposed server-managed session architecture.
-2. Design the secure identity mapping and runtime access strategy.
-3. Add academic-year, term, class, student, guardian-link, staff and teacher-assignment tables.
-4. Add RLS and database-level tenant isolation tests before connecting school-data routes.
-5. Add backups, restore verification, audit retention and operational monitoring before pilot use.
+1. Review and apply the schema-alignment migration after approval, then verify it against a clean database.
+2. Decide the authentication architecture and identity mapping.
+3. Design the runtime access strategy that preserves the caller's identity and tenant context.
+4. Add academic-year, term, class, student, guardian-link, staff and teacher-assignment tables.
+5. Add RLS and database-level tenant isolation tests before connecting school-data routes.
+6. Add backups, restore verification, audit retention and operational monitoring before pilot use.

@@ -16,12 +16,12 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 ## Phase 1 — Application foundation
 - [ ] Create web and API applications.
 - [ ] Add shared contracts and environment validation.
-- [ ] Set up PostgreSQL and migration workflow.
+- [ ] Set up PostgreSQL and a repeatable migration workflow.
 - [ ] Implement users, schools, memberships, and school onboarding.
 - [ ] Implement authentication, sessions, and account recovery.
 - [ ] Add role/permission checks and tenant-isolation tests.
 - [ ] Build initial school setup wizard.
-- [ ] Reconcile database schema vocabulary with shared identity contracts before runtime integration.
+- [ ] Review and apply the schema-contract alignment migration, then verify it against a clean database before runtime integration.
 
 **Exit criteria:** two test schools can be created, users can be assigned to each, and cross-school access tests pass.
 

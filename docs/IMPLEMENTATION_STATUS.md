@@ -32,6 +32,13 @@
 - Security advisor reports only the expected informational finding that RLS is enabled without policies. This is intentional until the auth and tenant policy model is implemented.
 - Performance advisor reports unused indexes; the database is empty, so usage cannot yet be meaningfully evaluated.
 
+### Schema/contract alignment drafted — not applied
+- Follow-up migration `20261112153700_align_identity_schema_contracts` aligns school lifecycle values and membership roles with the shared TypeScript contracts.
+- Adds explicit school-domain kind and the email-verification timestamp required by the identity contract.
+- Shared role/status unions are now exported from one source, including the distinct `school_owner` role and revoked membership state.
+- Static schema-contract tests compare the SQL constraint values with the shared TypeScript constants.
+- The migration is repository-only and has **not** been applied to Supabase. It includes a guard that refuses to guess domain kinds if domain rows already exist.
+
 ### Deliberately not implemented yet
 - Authentication provider and application-user identity mapping.
 - Runtime database client, connection pooling and transaction-scoped tenant context.
@@ -40,10 +47,10 @@
 - Database-backed repositories and API routes.
 - Production deployment configuration.
 
-### Integration blocker identified
-The initial SQL schema and shared TypeScript identity contracts still use different vocabularies for some school lifecycle, membership-role and domain fields. This must be reconciled and covered by schema/contract tests before the runtime authentication and database integration is connected.
+### Remaining integration blockers
+The live database still has only the initial migration applied, so its persisted values do not yet match the updated shared contracts. The follow-up migration must be reviewed and explicitly applied before runtime integration. Authentication architecture, secure identity mapping, tenant-scoped database access, RLS policies and cross-tenant integration tests also remain pending.
 
-The database foundation is not a production-ready application data layer. Do not enable browser access or use a privileged service-role credential as a substitute for user authorization. Before student or school data is introduced, implement authentication, tenant-scoped runtime access, resource relationship checks, RLS policies and cross-tenant integration tests.
+The database foundation is not a production-ready application data layer. Do not add real student or school data or enable browser access until authentication, tenant-scoped runtime access, resource relationship checks, RLS policies and cross-tenant integration tests are implemented and verified.
 
 ## Local development
 
