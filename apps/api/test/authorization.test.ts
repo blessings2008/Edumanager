@@ -61,3 +61,47 @@ test("students and guardians receive only the generic self-portal grant", () => 
   assert.equal(hasSchoolPermission("guardian", "students:read"), false);
   assert.equal(hasSchoolPermission("student", "finance:read"), false);
 });
+
+
+test("students can read only their own student record", async () => {
+  const { canAccessStudentRecord } = await import("../../../packages/contracts/src/authorization.js");
+  assert.equal(canAccessStudentRecord({
+    role: "student", actorUserId: "student-a", studentUserId: "student-a",
+    action: "read", isGuardianOfStudent: false, isTeacherAssignedToStudent: false,
+  }), true);
+  assert.equal(canAccessStudentRecord({
+    role: "student", actorUserId: "student-a", studentUserId: "student-b",
+    action: "read", isGuardianOfStudent: false, isTeacherAssignedToStudent: false,
+  }), false);
+});
+
+test("guardians can read only records linked through a verified relationship", async () => {
+  const { canAccessStudentRecord } = await import("../../../packages/contracts/src/authorization.js");
+  const base = {
+    role: "guardian" as const, actorUserId: "guardian-a", studentUserId: "student-a",
+    action: "read" as const, isTeacherAssignedToStudent: false,
+  };
+  assert.equal(canAccessStudentRecord({ ...base, isGuardianOfStudent: true }), true);
+  assert.equal(canAccessStudentRecord({ ...base, isGuardianOfStudent: false }), false);
+});
+
+test("teachers can read only assigned students and cannot write student records", async () => {
+  const { canAccessStudentRecord } = await import("../../../packages/contracts/src/authorization.js");
+  const base = {
+    role: "teacher" as const, actorUserId: "teacher-a", studentUserId: "student-a",
+    isGuardianOfStudent: false, isTeacherAssignedToStudent: true,
+  };
+  assert.equal(canAccessStudentRecord({ ...base, action: "read" }), true);
+  assert.equal(canAccessStudentRecord({ ...base, action: "write" }), false);
+  assert.equal(canAccessStudentRecord({ ...base, isTeacherAssignedToStudent: false, action: "read" }), false);
+});
+
+test("school administrators and staff follow their explicit student permissions", async () => {
+  const { canAccessStudentRecord } = await import("../../../packages/contracts/src/authorization.js");
+  const base = {
+    actorUserId: "staff-a", studentUserId: "student-a",
+    isGuardianOfStudent: false, isTeacherAssignedToStudent: false,
+  };
+  assert.equal(canAccessStudentRecord({ ...base, role: "school_admin", action: "write" }), true);
+  assert.equal(canAccessStudentRecord({ ...base, role: "school_staff", action: "write" }), true);
+});
