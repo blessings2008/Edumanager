@@ -166,16 +166,19 @@ test("GET /api/v1/me rejects missing, malformed, blank and inactive principals",
   }
 });
 
-test("GET /api/v1/me does not expose authentication adapter failures", async () => {
+test("GET /api/v1/me normalizes authentication adapter failures and ignores adapter HTTP statuses", async () => {
   const app = buildApp(config, false, {
     authenticateRequest: async () => {
-      throw new Error("private session token detail");
+      throw Object.assign(new Error("private session token detail"), { statusCode: 403 });
     },
   });
   try {
     const response = await app.inject({ method: "GET", url: "/api/v1/me" });
-    assert.equal(response.statusCode, 500);
-    assert.equal(response.json().message, "An unexpected error occurred.");
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.json(), {
+      error: "Service Unavailable",
+      message: "Authentication is temporarily unavailable.",
+    });
     assert.equal(JSON.stringify(response.json()).includes("private session token detail"), false);
   } finally {
     await app.close();
@@ -324,11 +327,11 @@ test("school context route rejects malformed requested school identifiers", asyn
   }
 });
 
-test("school membership resolver failures do not expose internal details", async () => {
+test("school membership resolver normalizes persistence failures and ignores database HTTP statuses", async () => {
   const app = buildApp(config, false, {
     authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
     resolveTenantContext: async () => {
-      throw new Error("private membership query details");
+      throw Object.assign(new Error("private membership query details"), { statusCode: 403 });
     },
   });
   try {
@@ -336,8 +339,11 @@ test("school membership resolver failures do not expose internal details", async
       method: "GET",
       url: "/api/v1/schools/school-a/context",
     });
-    assert.equal(response.statusCode, 500);
-    assert.equal(response.json().message, "An unexpected error occurred.");
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.json(), {
+      error: "Service Unavailable",
+      message: "School access is temporarily unavailable.",
+    });
     assert.equal(JSON.stringify(response.json()).includes("private membership query details"), false);
   } finally {
     await app.close();
