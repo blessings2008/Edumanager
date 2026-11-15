@@ -144,19 +144,23 @@ export function buildApp(
 
   // This endpoint proves only the authenticated global identity. School
   // membership and tenant context are separate, server-resolved boundaries.
-  app.get("/api/v1/me", { preHandler: requireAuthentication }, async (request) => ({
-    userId: request.authenticatedPrincipal!.userId,
-  }));
+  app.get("/api/v1/me", { preHandler: requireAuthentication }, async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    return { userId: request.authenticatedPrincipal!.userId };
+  });
 
   // The resolver must verify the active user, school and membership in trusted
   // persistence. The route parameter is a selector, never an authorization claim.
   app.get(
     "/api/v1/schools/:schoolId/context",
     { preHandler: [requireAuthentication, requireTenantContext] },
-    async (request) => ({
-      schoolId: request.tenantContext!.schoolId,
-      role: request.tenantContext!.role,
-    }),
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      return {
+        schoolId: request.tenantContext!.schoolId,
+        role: request.tenantContext!.role,
+      };
+    },
   );
 
   app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({
