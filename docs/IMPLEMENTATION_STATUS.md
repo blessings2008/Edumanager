@@ -18,14 +18,14 @@
 - Protected `GET /api/v1/me` accepts only a runtime-validated active global user identity from that adapter.
 - Tenant IDs, school roles and permissions are not accepted as authenticated-principal claims; they must be resolved separately from trusted school records.
 - With no adapter configured in the server entry point, the endpoint fails closed with 401.
-- API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures.
+- API tests cover missing adapters, forged identity headers, malformed/inactive principals, discarded tenant/role claims and sanitized adapter failures. Adapter exceptions are normalized to a generic 503 response so provider-supplied status codes and internal messages cannot control the public response.
 - This is an integration seam only: no credential verifier, authentication provider, session lifecycle, account recovery or persisted identity mapping is implemented.
 
 ### Verified partial school-membership boundary
 - Added a provider-neutral tenant-context resolver seam after authentication.
 - Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver.
 - The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown resolver fields are discarded.
-- A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403.
+- A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403. Resolver exceptions are normalized to a generic 503 response, independent of status codes attached to persistence errors.
 - Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
 - A PostgreSQL membership-reader adapter now performs one parameterized join across the persisted user, school and membership tables. It rejects malformed UUID inputs and returns no snapshot for missing, duplicate or malformed query results; it deliberately returns inactive statuses for the shared policy to reject.
 - Unit tests exercise the SQL parameters, school/user relationship joins, fail-closed result handling and persistence errors through an injected query executor.

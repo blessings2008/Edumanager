@@ -45,7 +45,19 @@ export function buildApp(
       return;
     }
 
-    const principal = parseAuthenticatedPrincipal(await adapter(request));
+    let adapterResult: unknown;
+    try {
+      adapterResult = await adapter(request);
+    } catch (error) {
+      request.log.error({ err: error }, "Authentication adapter failed");
+      reply.code(503).send({
+        error: "Service Unavailable",
+        message: "Authentication is temporarily unavailable.",
+      });
+      return;
+    }
+
+    const principal = parseAuthenticatedPrincipal(adapterResult);
     if (!principal) {
       reply.code(401).send({
         error: "Unauthorized",
@@ -86,11 +98,23 @@ export function buildApp(
       return;
     }
 
-    const context = parseTenantRequestContext(
-      await resolver({
+    let resolverResult: unknown;
+    try {
+      resolverResult = await resolver({
         authenticatedUserId: principal.userId,
         requestedSchoolId: schoolId,
-      }),
+      });
+    } catch (error) {
+      request.log.error({ err: error }, "School membership resolver failed");
+      reply.code(503).send({
+        error: "Service Unavailable",
+        message: "School access is temporarily unavailable.",
+      });
+      return;
+    }
+
+    const context = parseTenantRequestContext(
+      resolverResult,
       principal.userId,
       schoolId,
     );
