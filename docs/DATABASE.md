@@ -64,8 +64,9 @@ The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
 3. Starts a transaction.
 4. Installs the validated identifiers with parameterized `set_config(..., true)` calls.
 5. Runs supplied repository work through a frozen query-only executor; the callback cannot access the pool connection's `release` control.
-6. Commits on success, or rolls back on failure, then releases the connection.
-7. Marks the connection for disposal if rollback itself fails.
+6. Limits that executor to the callback's lifetime. It closes the executor when callback work settles, waits for every query already started by the callback to settle before transaction finalization, and rejects later calls made through retained executor references.
+7. Commits on success, or rolls back on failure, then releases the connection.
+8. Marks the connection for disposal if rollback itself fails.
 
 The settings are transaction-local and are cleared by PostgreSQL at transaction end, preventing one request's tenant context from leaking through a reused pooled connection. The helper deliberately does not set a role or copy a role claim into the database context; policies must derive permissions from persisted school membership.
 
