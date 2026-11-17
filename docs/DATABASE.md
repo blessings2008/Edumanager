@@ -63,7 +63,7 @@ The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
 2. Checks out one connection from an injected pool.
 3. Starts a transaction.
 4. Installs the validated identifiers with parameterized `set_config(..., true)` calls.
-5. Runs the supplied repository work on that same connection.
+5. Runs supplied repository work through a frozen query-only executor; the callback cannot access the pool connection's `release` control.
 6. Commits on success, or rolls back on failure, then releases the connection.
 7. Marks the connection for disposal if rollback itself fails.
 

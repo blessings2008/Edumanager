@@ -5,6 +5,7 @@ import {
   SET_TENANT_TRANSACTION_CONTEXT_SQL,
   withTenantTransaction,
   type TenantTransactionConnection,
+  type TenantTransactionExecutor,
 } from "../src/persistence/tenant-transaction.js";
 
 const context: TenantRequestContext = {
@@ -14,10 +15,10 @@ const context: TenantRequestContext = {
   role: "teacher",
 };
 
-test("runs tenant work in one transaction with transaction-local identity settings", async () => {
+test("runs tenant work through a frozen query-only executor and keeps release control private", async () => {
   const calls: Array<{ sql: string; values?: unknown[] }> = [];
   let released = false;
-  let callbackConnection: TenantTransactionConnection | undefined;
+  let callbackExecutor: TenantTransactionExecutor | undefined;
   const connection: TenantTransactionConnection = {
     query: async (sql, values) => {
       calls.push({ sql, values });
@@ -28,14 +29,17 @@ test("runs tenant work in one transaction with transaction-local identity settin
 
   const result = await withTenantTransaction({
     connect: async () => connection,
-  }, context, async (activeConnection) => {
-    callbackConnection = activeConnection;
-    await activeConnection.query("SELECT 1");
+  }, context, async (activeExecutor) => {
+    callbackExecutor = activeExecutor;
+    await activeExecutor.query("SELECT 1");
     return "completed";
   });
 
   assert.equal(result, "completed");
-  assert.equal(callbackConnection, connection);
+  assert.ok(callbackExecutor);
+  assert.notEqual(callbackExecutor, connection);
+  assert.equal(Object.isFrozen(callbackExecutor), true);
+  assert.equal("release" in callbackExecutor, false);
   assert.deepEqual(calls.map((call) => call.sql), [
     "BEGIN",
     SET_TENANT_TRANSACTION_CONTEXT_SQL,

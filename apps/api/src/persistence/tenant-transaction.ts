@@ -3,12 +3,16 @@ import {
   type TenantRequestContext,
 } from "../domain/tenant-authorization.js";
 
+/** Query-only surface exposed to tenant-owned repository callbacks. */
+export interface TenantTransactionExecutor {
+  query(sql: string, values?: unknown[]): Promise<unknown>;
+}
+
 /**
  * Minimal node-postgres-compatible checked-out connection contract.
  * Keeping this structural avoids coupling the domain adapter to a pool package.
  */
-export interface TenantTransactionConnection {
-  query(sql: string, values?: unknown[]): Promise<unknown>;
+export interface TenantTransactionConnection extends TenantTransactionExecutor {
   release(error?: Error): void;
 }
 
@@ -80,7 +84,7 @@ function snapshotTenantRequestContext(value: unknown): TenantRequestContext | nu
 export async function withTenantTransaction<T>(
   pool: TenantTransactionPool,
   context: TenantRequestContext,
-  work: (connection: TenantTransactionConnection) => Promise<T>,
+  work: (executor: TenantTransactionExecutor) => Promise<T>,
 ): Promise<T> {
   const tenantContext = snapshotTenantRequestContext(context);
   if (!tenantContext) {
@@ -101,7 +105,13 @@ export async function withTenantTransaction<T>(
       tenantContext.membershipId,
     ]);
 
-    const result = await work(connection);
+    // Keep pool lifecycle controls private to this helper. Repository code
+    // receives only a frozen query facade and cannot release the pooled
+    // connection before COMMIT/ROLLBACK has completed.
+    const executor: TenantTransactionExecutor = Object.freeze({
+      query: (sql: string, values?: unknown[]) => connection.query(sql, values),
+    });
+    const result = await work(executor);
     await connection.query("COMMIT");
     transactionOpen = false;
     return result;
