@@ -40,6 +40,10 @@ test("runs tenant work through a frozen query-only executor and keeps release co
   assert.notEqual(callbackExecutor, connection);
   assert.equal(Object.isFrozen(callbackExecutor), true);
   assert.equal("release" in callbackExecutor, false);
+  await assert.rejects(
+    callbackExecutor.query("SELECT after completion"),
+    /Tenant transaction executor is no longer active/,
+  );
   assert.deepEqual(calls.map((call) => call.sql), [
     "BEGIN",
     SET_TENANT_TRANSACTION_CONTEXT_SQL,
@@ -51,6 +55,84 @@ test("runs tenant work through a frozen query-only executor and keeps release co
   assert.match(SET_TENANT_TRANSACTION_CONTEXT_SQL, /set_config\('app\.school_id', \$2, true\)/);
   assert.match(SET_TENANT_TRANSACTION_CONTEXT_SQL, /set_config\('app\.membership_id', \$3, true\)/);
   assert.equal(released, true);
+});
+
+test("waits for callback-started queries to settle before committing", async () => {
+  const calls: string[] = [];
+  let queryStarted!: () => void;
+  let finishQuery!: () => void;
+  const started = new Promise<void>((resolve) => { queryStarted = resolve; });
+  const queryGate = new Promise<void>((resolve) => { finishQuery = resolve; });
+  const connection: TenantTransactionConnection = {
+    query: async (sql) => {
+      calls.push(sql);
+      if (sql === "SELECT delayed") {
+        queryStarted();
+        await queryGate;
+      }
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  const transaction = withTenantTransaction({
+    connect: async () => connection,
+  }, context, async (executor) => {
+    // Deliberately omit await to prove transaction finalization drains it.
+    void executor.query("SELECT delayed");
+    return "completed";
+  });
+
+  await started;
+  assert.equal(calls.includes("COMMIT"), false);
+  finishQuery();
+
+  assert.equal(await transaction, "completed");
+  assert.deepEqual(calls, [
+    "BEGIN",
+    SET_TENANT_TRANSACTION_CONTEXT_SQL,
+    "SELECT delayed",
+    "COMMIT",
+  ]);
+});
+
+test("rolls back when a callback-started query fails before transaction finalization", async () => {
+  const calls: string[] = [];
+  const failure = new Error("delayed query failed");
+  let queryStarted!: () => void;
+  let finishQuery!: () => void;
+  const started = new Promise<void>((resolve) => { queryStarted = resolve; });
+  const queryGate = new Promise<void>((resolve) => { finishQuery = resolve; });
+  const connection: TenantTransactionConnection = {
+    query: async (sql) => {
+      calls.push(sql);
+      if (sql === "SELECT delayed") {
+        queryStarted();
+        await queryGate;
+        throw failure;
+      }
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  const transaction = withTenantTransaction({
+    connect: async () => connection,
+  }, context, async (executor) => {
+    void executor.query("SELECT delayed");
+    return "completed";
+  });
+
+  await started;
+  finishQuery();
+
+  await assert.rejects(transaction, (error) => error === failure);
+  assert.deepEqual(calls, [
+    "BEGIN",
+    SET_TENANT_TRANSACTION_CONTEXT_SQL,
+    "SELECT delayed",
+    "ROLLBACK",
+  ]);
 });
 
 test("snapshots validated tenant identity before awaiting a pooled connection", async () => {
