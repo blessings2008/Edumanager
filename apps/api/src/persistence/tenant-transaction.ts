@@ -118,6 +118,9 @@ export async function withTenantTransaction<T>(
           return Promise.reject(new Error("Tenant transaction executor is no longer active."));
         }
 
+        // A query-only API is not sufficient if callback SQL can end the
+        // transaction or overwrite its transaction-local tenant identifiers.
+        // Validate it before the driver can execute it.
         // Track every issued query, not just currently pending ones. This
         // lets the helper drain callback-started work before COMMIT/ROLLBACK.
         const query = Promise.resolve().then(() => {
