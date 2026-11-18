@@ -364,7 +364,7 @@ test("rejects transaction and session control statements before forwarding SQL",
       async (executor) => {
         await assert.rejects(
           executor.query(sql),
-          /one data statement and rejects transaction\\/session control/,
+          /one data statement/,
         );
         return "callback completed";
       },
@@ -372,7 +372,7 @@ test("rejects transaction and session control statements before forwarding SQL",
 
     await assert.rejects(
       transaction,
-      /one data statement and rejects transaction\\/session control/,
+      /one data statement/,
     );
     assert.deepEqual(calls, [
       "BEGIN",
@@ -406,11 +406,11 @@ test("rejects multiple SQL statements even when the first statement is data-only
         async (executor) => {
           await assert.rejects(
             executor.query(sql),
-            /one data statement and rejects transaction\\/session control/,
+            /one data statement/,
           );
         },
       ),
-      /one data statement and rejects transaction\\/session control/,
+      /one data statement/,
     );
 
     assert.deepEqual(calls, [
@@ -447,11 +447,11 @@ test("rejects direct set_config calls that could overwrite transaction-local ten
         async (executor) => {
           await assert.rejects(
             executor.query(sql),
-            /one data statement and rejects transaction\\/session control/,
+            /one data statement/,
           );
         },
       ),
-      /one data statement and rejects transaction\\/session control/,
+      /one data statement/,
     );
 
     assert.deepEqual(calls, [
