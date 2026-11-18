@@ -281,3 +281,50 @@ test("discards a connection when BEGIN fails before tenant work starts", async (
   assert.equal(workCalled, false);
   assert.equal(releaseError, failure);
 });
+
+test("waits for callback-started queries to settle before rolling back callback failures", async () => {
+  const calls: string[] = [];
+  const callbackFailure = new Error("repository callback failed");
+  let queryStarted!: () => void;
+  let finishQuery!: () => void;
+  const started = new Promise<void>((resolve) => { queryStarted = resolve; });
+  const queryGate = new Promise<void>((resolve) => { finishQuery = resolve; });
+  const connection: TenantTransactionConnection = {
+    query: async (sql) => {
+      calls.push(sql);
+      if (sql === "SELECT delayed") {
+        queryStarted();
+        await queryGate;
+      }
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  const transaction = withTenantTransaction({
+    connect: async () => connection,
+  }, context, async (executor) => {
+    // Deliberately leave the query in flight while the callback rejects.
+    void executor.query("SELECT delayed");
+    await started;
+    throw callbackFailure;
+  });
+
+  await started;
+  // Give the callback rejection and transaction catch path a turn to run.
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [
+    "BEGIN",
+    SET_TENANT_TRANSACTION_CONTEXT_SQL,
+    "SELECT delayed",
+  ]);
+
+  finishQuery();
+  await assert.rejects(transaction, (error) => error === callbackFailure);
+  assert.deepEqual(calls, [
+    "BEGIN",
+    SET_TENANT_TRANSACTION_CONTEXT_SQL,
+    "SELECT delayed",
+    "ROLLBACK",
+  ]);
+});
