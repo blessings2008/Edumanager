@@ -16,7 +16,7 @@ function skipSingleQuotedString(sql: string, start: number, escapeBackslashes: b
   let index = start + 1;
 
   while (index < sql.length) {
-    const character = sql[index];
+    const character = sql.charAt(index);
 
     if (character === "'" && sql[index + 1] === "'") {
       index += 2;
@@ -47,7 +47,7 @@ function skipDoubleQuotedIdentifier(
   let value = "";
 
   while (index < sql.length) {
-    const character = sql[index];
+    const character = sql.charAt(index);
 
     if (character === '"' && sql[index + 1] === '"') {
       value += '"';
@@ -93,7 +93,7 @@ function tokenize(sql: string): SqlToken[] {
   let terminated = false;
 
   while (index < sql.length) {
-    const character = sql[index];
+    const character = sql.charAt(index);
 
     if (/\s/.test(character)) {
       index += 1;
@@ -114,10 +114,10 @@ function tokenize(sql: string): SqlToken[] {
     if (terminated) return rejectUnsafeQuery();
 
     if (character === "'") {
-      const previous = sql[index - 1];
-      const beforePrevious = sql[index - 2];
+      const previous = sql.charAt(index - 1);
+      const beforePrevious = sql.charAt(index - 2);
       const escapeString = (previous === "e" || previous === "E")
-        && (beforePrevious === undefined || !/[A-Za-z0-9_$]/.test(beforePrevious));
+        && (beforePrevious.length === 0 || !/[A-Za-z0-9_$]/.test(beforePrevious));
       index = skipSingleQuotedString(sql, index, escapeString);
       continue;
     }
@@ -186,19 +186,20 @@ function isWord(token: SqlToken | undefined, value: string): boolean {
 
 function skipParenthesizedGroup(tokens: SqlToken[], start: number): number {
   const opening = tokens[start];
-  if (opening?.value !== "(" || opening.depth !== 0) return rejectUnsafeQuery();
+  if (!opening || opening.value !== "(" || opening.depth !== 0) return rejectUnsafeQuery();
 
   for (let index = start + 1; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token.value === ")" && token.depth === 0) return index + 1;
+    if (token && token.value === ")" && token.depth === 0) return index + 1;
   }
 
   return rejectUnsafeQuery();
 }
 
 function readMainCommand(tokens: SqlToken[]): string {
-  if (tokens[0]?.kind !== "word" || tokens[0].depth !== 0) return rejectUnsafeQuery();
-  if (!isWord(tokens[0], "WITH")) return tokens[0].value;
+  const first = tokens[0];
+  if (!first || first.kind !== "word" || first.depth !== 0) return rejectUnsafeQuery();
+  if (!isWord(first, "WITH")) return first.value;
 
   let index = 1;
   if (isWord(tokens[index], "RECURSIVE")) index += 1;
@@ -212,7 +213,8 @@ function readMainCommand(tokens: SqlToken[]): string {
     }
     index += 1;
 
-    if (tokens[index]?.value === "(" && tokens[index].depth === 0) {
+    const columnList = tokens[index];
+    if (columnList?.value === "(" && columnList.depth === 0) {
       index = skipParenthesizedGroup(tokens, index);
     }
 
@@ -227,18 +229,20 @@ function readMainCommand(tokens: SqlToken[]): string {
       index += 1;
     }
 
-    if (tokens[index]?.value !== "(" || tokens[index].depth !== 0) {
+    const cteBody = tokens[index];
+    if (!cteBody || cteBody.value !== "(" || cteBody.depth !== 0) {
       return rejectUnsafeQuery();
     }
     index = skipParenthesizedGroup(tokens, index);
 
-    if (tokens[index]?.value === "," && tokens[index].depth === 0) {
+    const separator = tokens[index];
+    if (separator?.value === "," && separator.depth === 0) {
       index += 1;
       continue;
     }
 
     const command = tokens[index];
-    if (command?.kind !== "word" || command.depth !== 0) return rejectUnsafeQuery();
+    if (!command || command.kind !== "word" || command.depth !== 0) return rejectUnsafeQuery();
     return command.value;
   }
 }
@@ -264,6 +268,7 @@ export function assertSafeTenantQuery(sql: string): void {
   for (let index = 0; index < tokens.length - 1; index += 1) {
     const token = tokens[index];
     const next = tokens[index + 1];
+    if (!token || !next) return rejectUnsafeQuery();
     const identifier = token.kind === "word" || token.kind === "quoted-identifier";
 
     if (identifier && token.value.toLowerCase() === "set_config" && next.value === "(") {
