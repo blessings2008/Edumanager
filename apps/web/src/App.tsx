@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   GraduationCap,
   HeartHandshake,
-  Menu,
   ShieldCheck,
   Users,
   Wallet,
@@ -71,7 +70,7 @@ const principles = [
 
 function App() {
   return (
-    <main>
+    <main id="main-content">
       <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="site-header">
         <div className="container header-inner">
