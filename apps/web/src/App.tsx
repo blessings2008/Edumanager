@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
+import type * as React from "react";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, BookOpen, CalendarDays,
-  Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck,
-  CreditCard, Download, FileBarChart, GraduationCap, LayoutDashboard, LogOut,
-  Menu, MoreHorizontal, Plus, Search, Settings, ShieldCheck, SlidersHorizontal,
-  UserRound, Users, Wallet, X, Clock3, TrendingUp, AlertCircle, CheckCircle2,
-  CircleDollarSign, School, PanelLeftClose, Sparkles,
+  ArrowUpRight, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown,
+  ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, CreditCard, Download,
+  FileBarChart, GraduationCap, LayoutDashboard, Menu, MoreHorizontal, Plus,
+  Search, Settings, ShieldCheck, SlidersHorizontal, UserRound, Users, Wallet,
+  X, Clock3, AlertCircle, CircleDollarSign, School, Sparkles,
 } from "lucide-react";
 
 type Page = "Overview" | "Students" | "Attendance" | "Academics" | "Finance" | "Staff" | "Reports" | "Settings";
