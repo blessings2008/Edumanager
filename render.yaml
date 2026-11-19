@@ -5,6 +5,9 @@ services:
     buildCommand: corepack enable && corepack prepare pnpm@10.18.0 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @edumanager/web build
     staticPublishPath: apps/web/dist
     autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
     previews:
       generation: off
     routes:
