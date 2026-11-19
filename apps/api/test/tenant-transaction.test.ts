@@ -328,3 +328,166 @@ test("waits for callback-started queries to settle before rolling back callback 
     "ROLLBACK",
   ]);
 });
+
+
+test("rejects transaction and session control statements before forwarding SQL", async () => {
+  const blockedStatements = [
+    "BEGIN",
+    "START TRANSACTION",
+    "COMMIT",
+    "END",
+    "ROLLBACK",
+    "ABORT",
+    "SAVEPOINT nested_work",
+    "RELEASE SAVEPOINT nested_work",
+    "SET LOCAL app.school_id = 'school-b'",
+    "RESET ALL",
+    "DISCARD ALL",
+    "PREPARE tenant_query AS SELECT 1",
+    "CALL unsafe_procedure()",
+    "DO $$ BEGIN COMMIT; END $$",
+  ];
+
+  for (const sql of blockedStatements) {
+    const calls: string[] = [];
+    const connection: TenantTransactionConnection = {
+      query: async (statement) => {
+        calls.push(statement);
+        return { rows: [] };
+      },
+      release: () => undefined,
+    };
+
+    const transaction = withTenantTransaction(
+      { connect: async () => connection },
+      context,
+      async (executor) => {
+        await assert.rejects(
+          executor.query(sql),
+          /one data statement/,
+        );
+        return "callback completed";
+      },
+    );
+
+    await assert.rejects(
+      transaction,
+      /one data statement/,
+    );
+    assert.deepEqual(calls, [
+      "BEGIN",
+      SET_TENANT_TRANSACTION_CONTEXT_SQL,
+      "ROLLBACK",
+    ], "blocked SQL must never reach the checked-out connection");
+  }
+});
+
+test("rejects multiple SQL statements even when the first statement is data-only", async () => {
+  const blockedStatements = [
+    "SELECT 1; COMMIT",
+    "SELECT 1; SELECT 2",
+    "WITH rows AS (SELECT 1) SELECT * FROM rows; DELETE FROM students",
+  ];
+
+  for (const sql of blockedStatements) {
+    const calls: string[] = [];
+    const connection: TenantTransactionConnection = {
+      query: async (statement) => {
+        calls.push(statement);
+        return { rows: [] };
+      },
+      release: () => undefined,
+    };
+
+    await assert.rejects(
+      withTenantTransaction(
+        { connect: async () => connection },
+        context,
+        async (executor) => {
+          await assert.rejects(
+            executor.query(sql),
+            /one data statement/,
+          );
+        },
+      ),
+      /one data statement/,
+    );
+
+    assert.deepEqual(calls, [
+      "BEGIN",
+      SET_TENANT_TRANSACTION_CONTEXT_SQL,
+      "ROLLBACK",
+    ]);
+  }
+});
+
+test("rejects direct set_config calls that could overwrite transaction-local tenant identity", async () => {
+  const blockedStatements = [
+    "SELECT set_config('app.school_id', 'school-b', true)",
+    "SELECT pg_catalog.set_config('app.school_id', $1, true)",
+    'SELECT pg_catalog."set_config"($1, $2, true)',
+    "SELECT set_config /* hidden between name and call */ ('app.user_id', $1, true)",
+    "WITH identity AS (SELECT 1) SELECT set_config('app.membership_id', $1, true)",
+  ];
+
+  for (const sql of blockedStatements) {
+    const calls: string[] = [];
+    const connection: TenantTransactionConnection = {
+      query: async (statement) => {
+        calls.push(statement);
+        return { rows: [] };
+      },
+      release: () => undefined,
+    };
+
+    await assert.rejects(
+      withTenantTransaction(
+        { connect: async () => connection },
+        context,
+        async (executor) => {
+          await assert.rejects(
+            executor.query(sql),
+            /one data statement/,
+          );
+        },
+      ),
+      /one data statement/,
+    );
+
+    assert.deepEqual(calls, [
+      "BEGIN",
+      SET_TENANT_TRANSACTION_CONTEXT_SQL,
+      "ROLLBACK",
+    ]);
+  }
+});
+
+test("allows one data statement when control words occur only in comments or literals", async () => {
+  const calls: string[] = [];
+  const connection: TenantTransactionConnection = {
+    query: async (statement) => {
+      calls.push(statement);
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  await withTenantTransaction(
+    { connect: async () => connection },
+    context,
+    async (executor) => {
+      await executor.query("/* COMMIT */ SELECT 'ROLLBACK; set_config(''app.school_id'', ''school-b'', true)'");
+      await executor.query("WITH rows AS (SELECT 1) SELECT * FROM rows;");
+      await executor.query("SELECT $$COMMIT; SELECT set_config('app.school_id', 'school-b', true)$$;");
+    },
+  );
+
+  assert.deepEqual(calls, [
+    "BEGIN",
+    SET_TENANT_TRANSACTION_CONTEXT_SQL,
+    "/* COMMIT */ SELECT 'ROLLBACK; set_config(''app.school_id'', ''school-b'', true)'",
+    "WITH rows AS (SELECT 1) SELECT * FROM rows;",
+    "SELECT $$COMMIT; SELECT set_config('app.school_id', 'school-b', true)$$;",
+    "COMMIT",
+  ]);
+});
