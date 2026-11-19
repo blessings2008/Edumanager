@@ -1,5 +1,7 @@
 # EduManager — Product Vision
 
+> **Scope update (2026-11-19):** The founder has approved a complete school operating system with an integrated learning platform, subscription-tier feature entitlements and multi-school SaaS from inception. The current authoritative product and technical scope is [PRODUCT_AND_IMPLEMENTATION_SPECIFICATION.md](./PRODUCT_AND_IMPLEMENTATION_SPECIFICATION.md). Where this earlier document describes a narrower MVP or defers integrated learning, the newer specification takes precedence.
+
 ## 1. Purpose
 
 EduManager is a cloud-based school operations platform that helps schools manage their administrative and academic work in one place. It is being designed for the realities of Malawian schools first: mixed levels of digital access, mobile-first usage, school-year workflows, local fee practices, and the need for clear communication with parents and guardians.
