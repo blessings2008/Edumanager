@@ -24,7 +24,7 @@
 ### Verified partial school-membership boundary
 - Added a provider-neutral tenant-context resolver seam after authentication.
 - Protected `GET /api/v1/schools/:schoolId/context` passes only the authenticated global user ID and the requested path school ID to the resolver; successful context responses also set `Cache-Control: no-store`.
-- The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. Unknown fields are discarded.
+- The API rejects resolver contexts whose user or school IDs do not exactly match the request, whose membership ID is blank, or whose role is outside the shared school-role vocabulary. It snapshots each resolver field once and rejects throwing accessors, preventing mutable resolver objects from changing tenant identity or role between validation and use. Unknown fields are discarded.
 - A missing resolver returns 503; missing authentication returns 401; a mismatched or malformed context returns 403. Resolver exceptions are normalized to a generic 503 response, independent of status codes attached to persistence errors.
 - Shared contracts now provide `createTenantContextResolver`, which adapts a server-only membership reader, validates the actual persisted user/school/membership IDs and statuses, and delegates the final active-state and relationship checks to `buildTenantRequestContext`.
 - A PostgreSQL membership-reader adapter now performs one parameterized join across the persisted user, school and membership tables. It rejects malformed UUID inputs and returns no snapshot for missing, duplicate or malformed query results; it deliberately returns inactive statuses for the shared policy to reject.

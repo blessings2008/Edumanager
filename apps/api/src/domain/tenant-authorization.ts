@@ -55,21 +55,33 @@ export function parseTenantRequestContext(
 ): TenantRequestContext | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
 
-  const candidate = value as Record<string, unknown>;
-  if (!isNonBlankCanonicalString(candidate.userId)
-    || !isNonBlankCanonicalString(candidate.schoolId)
-    || !isNonBlankCanonicalString(candidate.membershipId)
-    || candidate.userId !== expectedUserId
-    || candidate.schoolId !== requestedSchoolId
-    || typeof candidate.role !== "string"
-    || !TENANT_SCHOOL_ROLES.includes(candidate.role as TenantSchoolRole)) {
+  try {
+    const candidate = value as Record<string, unknown>;
+    // Snapshot every resolver field once so accessor-backed results cannot
+    // change the tenant identity or role between validation and use.
+    const userId = candidate.userId;
+    const schoolId = candidate.schoolId;
+    const membershipId = candidate.membershipId;
+    const role = candidate.role;
+
+    if (!isNonBlankCanonicalString(userId)
+      || !isNonBlankCanonicalString(schoolId)
+      || !isNonBlankCanonicalString(membershipId)
+      || userId !== expectedUserId
+      || schoolId !== requestedSchoolId
+      || typeof role !== "string"
+      || !TENANT_SCHOOL_ROLES.includes(role as TenantSchoolRole)) {
+      return null;
+    }
+
+    return {
+      userId,
+      schoolId,
+      membershipId,
+      role: role as TenantSchoolRole,
+    };
+  } catch {
+    // Throwing getters and proxy traps are invalid resolver results.
     return null;
   }
-
-  return {
-    userId: candidate.userId,
-    schoolId: candidate.schoolId,
-    membershipId: candidate.membershipId,
-    role: candidate.role as TenantSchoolRole,
-  };
 }

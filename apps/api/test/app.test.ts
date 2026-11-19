@@ -320,6 +320,72 @@ test("school context resolver receives only authenticated identity and requested
   }
 });
 
+test("school context route snapshots resolver context fields exactly once", async () => {
+  const reads = { userId: 0, schoolId: 0, membershipId: 0, role: 0 };
+  const resolverContext = {
+    get userId() {
+      reads.userId += 1;
+      return reads.userId === 1 ? "user-a" : "user-b";
+    },
+    get schoolId() {
+      reads.schoolId += 1;
+      return reads.schoolId === 1 ? "school-a" : "school-b";
+    },
+    get membershipId() {
+      reads.membershipId += 1;
+      return reads.membershipId === 1 ? "membership-a" : "";
+    },
+    get role() {
+      reads.role += 1;
+      return reads.role === 1 ? "teacher" : "school_owner";
+    },
+  };
+
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    resolveTenantContext: async () => resolverContext,
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
+    assert.deepEqual(reads, { userId: 1, schoolId: 1, membershipId: 1, role: 1 });
+  } finally {
+    await app.close();
+  }
+});
+
+test("school context route rejects resolver results whose accessors throw", async () => {
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    resolveTenantContext: async () => ({
+      userId: "user-a",
+      schoolId: "school-a",
+      membershipId: "membership-a",
+      get role(): string {
+        throw new Error("private tenant context getter detail");
+      },
+    }),
+  });
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+    });
+    assert.equal(response.statusCode, 403);
+    assert.deepEqual(response.json(), {
+      error: "Forbidden",
+      message: "You do not have access to this school.",
+    });
+    assert.equal(JSON.stringify(response.json()).includes("private tenant context getter detail"), false);
+  } finally {
+    await app.close();
+  }
+});
+
 test("school context route rejects mismatched or malformed resolver results", async () => {
   const invalidContexts: unknown[] = [
     null,
