@@ -25,19 +25,32 @@ declare module "fastify" {
   }
 }
 
-/** Accept only a nonblank, canonical ID belonging to an active user. */
+/**
+ * Accept only a nonblank, canonical ID belonging to an active user.
+ * Read each property once into a detached snapshot: adapter results are runtime
+ * data, and accessor-backed objects must not be able to change identity
+ * between validation and the value returned to downstream authorization.
+ */
 export function parseAuthenticatedPrincipal(value: unknown): AuthenticatedPrincipal | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
 
-  const candidate = value as Record<string, unknown>;
-  if (typeof candidate.userId !== "string"
-    || candidate.userId.length === 0
-    || candidate.userId.trim() !== candidate.userId
-    || candidate.userStatus !== "active") {
+  try {
+    const candidate = value as Record<string, unknown>;
+    const userId = candidate.userId;
+    const userStatus = candidate.userStatus;
+
+    if (typeof userId !== "string"
+      || userId.length === 0
+      || userId.trim() !== userId
+      || userStatus !== "active") {
+      return null;
+    }
+
+    // Return only the global identity fields needed by downstream authorization.
+    // Ignore any tenant, role, or permission claims on the adapter's object.
+    return { userId, userStatus: "active" };
+  } catch {
+    // A throwing getter/proxy is not a valid authenticated principal.
     return null;
   }
-
-  // Return only the global identity fields needed by downstream authorization.
-  // Ignore any tenant, role, or permission claims on the adapter's object.
-  return { userId: candidate.userId, userStatus: "active" };
 }
