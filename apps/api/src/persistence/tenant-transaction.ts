@@ -123,9 +123,20 @@ export async function withTenantTransaction<T>(
         // Validate it before the driver can execute it.
         // Track every issued query, not just currently pending ones. This
         // lets the helper drain callback-started work before COMMIT/ROLLBACK.
+        // Snapshot the parameter vector before yielding to the validation/driver
+        // microtask so later caller mutations cannot change this query's arguments.
+        let queryValues: unknown[] | undefined;
+        try {
+          queryValues = values === undefined
+            ? undefined
+            : Array.prototype.slice.call(values) as unknown[];
+        } catch (error) {
+          return Promise.reject(error);
+        }
+
         const query = Promise.resolve().then(() => {
           assertSafeTenantQuery(sql);
-          return connection.query(sql, values);
+          return connection.query(sql, queryValues);
         });
         issuedQueries.push(query);
         return query;
