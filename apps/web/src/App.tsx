@@ -70,7 +70,7 @@ const principles = [
 
 function App() {
   return (
-    <main id="main-content">
+    <main>
       <a className="skip-link" href="#main-content">Skip to content</a>
       <header className="site-header">
         <div className="container header-inner">
@@ -88,7 +88,7 @@ function App() {
       </header>
 
       <section className="hero-section" id="home" aria-labelledby="hero-title">
-        <div className="container hero-grid">
+        <div className="container hero-grid" id="main-content">
           <div className="hero-copy">
             <div className="eyebrow"><span className="eyebrow-dot" /> A SCHOOL MANAGEMENT PLATFORM</div>
             <h1 id="hero-title">Bring your school<br /><span>into focus.</span></h1>
