@@ -13,7 +13,7 @@ The repository-root `render.yaml` defines one Render Static Site:
 | Setting | Value |
 |---|---|
 | Service name | `edumanager-web` |
-| Runtime | Static |
+| Runtime | Static (Node.js 22.12.0 build environment) |
 | Root directory | Repository root (leave unset) |
 | Build command | `corepack enable && corepack prepare pnpm@10.18.0 --activate && pnpm install --no-frozen-lockfile && pnpm --filter @edumanager/web build` |
 | Publish directory | `apps/web/dist` |
