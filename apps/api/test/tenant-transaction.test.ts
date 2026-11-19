@@ -57,6 +57,38 @@ test("runs tenant work through a frozen query-only executor and keeps release co
   assert.equal(released, true);
 });
 
+test("snapshots query parameter slots before asynchronous dispatch", async () => {
+  const calls: Array<{ sql: string; values?: unknown[] }> = [];
+  const connection: TenantTransactionConnection = {
+    query: async (sql, values) => {
+      calls.push({ sql, values });
+      return { rows: [] };
+    },
+    release: () => undefined,
+  };
+
+  await withTenantTransaction(
+    { connect: async () => connection },
+    context,
+    async (executor) => {
+      const values = ["school-a"];
+      const pendingQuery = executor.query("SELECT $1", values);
+
+      // Mutate both an existing slot and the array length before the queued
+      // validation/driver dispatch gets a chance to run.
+      values[0] = "school-b";
+      values.push("unexpected");
+
+      await pendingQuery;
+    },
+  );
+
+  assert.deepEqual(calls[2], {
+    sql: "SELECT $1",
+    values: ["school-a"],
+  });
+});
+
 test("waits for callback-started queries to settle before committing", async () => {
   const calls: string[] = [];
   let queryStarted!: () => void;
