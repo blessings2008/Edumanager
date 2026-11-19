@@ -94,6 +94,8 @@ export async function withTenantTransaction<T>(
   const connection = await pool.connect();
   let transactionOpen = false;
   let releaseError: Error | undefined;
+  let executorActive = false;
+  const issuedQueries: Promise<unknown>[] = [];
 
   try {
     await connection.query("BEGIN");
@@ -105,17 +107,43 @@ export async function withTenantTransaction<T>(
       tenantContext.membershipId,
     ]);
 
-    // Keep pool lifecycle controls private to this helper. Repository code
-    // receives only a frozen query facade and cannot release the pooled
-    // connection before COMMIT/ROLLBACK has completed.
+    // Keep pool lifecycle controls private to this helper. The executor is
+    // also a transaction-scoped lease: retained references stop accepting
+    // queries as soon as callback work settles.
+    executorActive = true;
     const executor: TenantTransactionExecutor = Object.freeze({
-      query: (sql: string, values?: unknown[]) => connection.query(sql, values),
+      query: (sql: string, values?: unknown[]) => {
+        if (!executorActive) {
+          return Promise.reject(new Error("Tenant transaction executor is no longer active."));
+        }
+
+        // Track every issued query, not just currently pending ones. This
+        // lets the helper drain callback-started work before COMMIT/ROLLBACK.
+        const query = Promise.resolve().then(() => connection.query(sql, values));
+        issuedQueries.push(query);
+        return query;
+      },
     });
+
     const result = await work(executor);
+    executorActive = false;
+
+    const queryResults = await Promise.allSettled(issuedQueries);
+    for (const queryResult of queryResults) {
+      if (queryResult.status === "rejected") {
+        throw queryResult.reason;
+      }
+    }
+
     await connection.query("COMMIT");
     transactionOpen = false;
     return result;
   } catch (error) {
+    executorActive = false;
+    // Do not race ROLLBACK with any query the callback started but did not
+    // await. The callback lease is closed, so this set can no longer grow.
+    await Promise.allSettled(issuedQueries);
+
     if (transactionOpen) {
       try {
         await connection.query("ROLLBACK");
