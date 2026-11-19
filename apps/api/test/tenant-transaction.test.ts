@@ -462,6 +462,41 @@ test("rejects direct set_config calls that could overwrite transaction-local ten
   }
 });
 
+test("rejects Unicode-escaped identifiers before forwarding SQL", async () => {
+  const blockedStatements = [
+    "SELECT U&\"set\\005fconfig\"('app.school_id', 'school-b', true)",
+    "SELECT u&\"set\\+00005fconfig\"('app.school_id', 'school-b', true)",
+  ];
+
+  for (const sql of blockedStatements) {
+    const calls: string[] = [];
+    const connection: TenantTransactionConnection = {
+      query: async (statement) => {
+        calls.push(statement);
+        return { rows: [] };
+      },
+      release: () => undefined,
+    };
+
+    await assert.rejects(
+      withTenantTransaction(
+        { connect: async () => connection },
+        context,
+        async (executor) => {
+          await executor.query(sql);
+        },
+      ),
+      /one data statement/,
+    );
+
+    assert.deepEqual(calls, [
+      "BEGIN",
+      SET_TENANT_TRANSACTION_CONTEXT_SQL,
+      "ROLLBACK",
+    ], "Unicode-escaped function names must never reach the connection");
+  }
+});
+
 test("allows one data statement when control words occur only in comments or literals", async () => {
   const calls: string[] = [];
   const connection: TenantTransactionConnection = {

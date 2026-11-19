@@ -259,6 +259,18 @@ export function assertSafeTenantQuery(sql: string): void {
 
   if (!ALLOWED_DATA_COMMANDS.has(command)) return rejectUnsafeQuery();
 
+  // PostgreSQL resolves U&"..." escapes before identifier lookup. This lexer
+  // does not decode escaped identifiers, so reject that spelling rather than
+  // let an escaped set_config name bypass the direct-call check.
+  for (let index = 0; index < tokens.length - 2; index += 1) {
+    if (isWord(tokens[index], "U")
+      && tokens[index + 1]?.kind === "symbol"
+      && tokens[index + 1]?.value === "&"
+      && tokens[index + 2]?.kind === "quoted-identifier") {
+      return rejectUnsafeQuery();
+    }
+  }
+
   if (command === "SELECT" && tokens.some(
     (token) => token.kind === "word" && token.value === "INTO" && token.depth === 0,
   )) {
