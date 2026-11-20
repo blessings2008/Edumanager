@@ -47,6 +47,7 @@ See [docs/DATABASE.md](docs/DATABASE.md) for the current schema and integration 
 
 ## Documentation
 
+- docs/PRODUCT_AND_IMPLEMENTATION_SPECIFICATION.md (current founder-approved product and technical implementation source of truth)
 - docs/PRODUCT_VISION.md
 - docs/ARCHITECTURE.md
 - docs/SECURITY_MODEL.md
