@@ -47,7 +47,11 @@ export class RuntimeDatabaseRoleSafetyError extends Error {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  try {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  } catch {
+    return false;
+  }
 }
 
 function isNonBlankString(value: unknown): value is string {
