@@ -59,15 +59,35 @@ export interface MembershipAccessInput {
 
 /** Fail-closed check: all identity, membership and tenant records must agree. */
 export function isActiveSchoolMember(input: MembershipAccessInput): boolean {
-  const { membership } = input;
-  if (!input.authenticatedUserId.trim() || !input.requestedSchoolId.trim()) return false;
-  if (!membership?.userId.trim() || !membership.schoolId.trim()) return false;
-  if (!SCHOOL_ROLES.includes(membership.role)) return false;
+  try {
+    // Snapshot every field before checking it. A persistence adapter result may
+    // be accessor-backed or proxied, so never re-read a value after validation.
+    const authenticatedUserId = input.authenticatedUserId;
+    const requestedSchoolId = input.requestedSchoolId;
+    const userStatus = input.userStatus;
+    const schoolStatus = input.schoolStatus;
+    const membershipValue = input.membership;
 
-  return input.userStatus === "active" && input.schoolStatus === "active"
-    && membership.status === "active"
-    && membership.userId === input.authenticatedUserId
-    && membership.schoolId === input.requestedSchoolId;
+    if (!isCanonicalIdentifier(authenticatedUserId)
+      || !isCanonicalIdentifier(requestedSchoolId)
+      || !isRecord(membershipValue)) return false;
+
+    const membershipUserId = membershipValue.userId;
+    const membershipSchoolId = membershipValue.schoolId;
+    const membershipRole = membershipValue.role;
+    const membershipStatus = membershipValue.status;
+
+    return userStatus === "active" && schoolStatus === "active"
+      && isCanonicalIdentifier(membershipUserId)
+      && isCanonicalIdentifier(membershipSchoolId)
+      && membershipUserId === authenticatedUserId
+      && membershipSchoolId === requestedSchoolId
+      && SCHOOL_ROLES.includes(membershipRole as SchoolRole)
+      && membershipStatus === "active";
+  } catch {
+    // Malformed records, throwing accessors and revoked proxies deny access.
+    return false;
+  }
 }
 
 export interface TrustedTenantContextInput {
@@ -83,21 +103,43 @@ export interface TrustedTenantContextInput {
  * server-loaded school/membership records. Never pass raw request body values.
  */
 export function buildTenantRequestContext(input: TrustedTenantContextInput): TenantRequestContext | null {
-  if (!isActiveSchoolMember({
-    authenticatedUserId: input.authenticatedUserId,
-    requestedSchoolId: input.schoolId,
-    membership: input.membership,
-    userStatus: input.userStatus,
-    schoolStatus: input.schoolStatus,
-  })) return null;
+  try {
+    const authenticatedUserId = input.authenticatedUserId;
+    const userStatus = input.userStatus;
+    const schoolId = input.schoolId;
+    const schoolStatus = input.schoolStatus;
+    const membershipValue = input.membership;
+    if (!isRecord(membershipValue)) return null;
 
-  if (!input.membership?.id.trim()) return null;
-  return {
-    userId: input.authenticatedUserId,
-    schoolId: input.schoolId,
-    membershipId: input.membership.id,
-    role: input.membership.role,
-  };
+    const membershipId = membershipValue.id;
+    const membershipUserId = membershipValue.userId;
+    const membershipSchoolId = membershipValue.schoolId;
+    const membershipRole = membershipValue.role;
+    const membershipStatus = membershipValue.status;
+
+    if (!isCanonicalIdentifier(membershipId)
+      || !isActiveSchoolMember({
+        authenticatedUserId,
+        requestedSchoolId: schoolId,
+        userStatus,
+        schoolStatus,
+        membership: {
+          userId: membershipUserId as string,
+          schoolId: membershipSchoolId as string,
+          role: membershipRole as SchoolRole,
+          status: membershipStatus as MembershipStatus,
+        },
+      })) return null;
+
+    return {
+      userId: authenticatedUserId,
+      schoolId,
+      membershipId,
+      role: membershipRole as SchoolRole,
+    };
+  } catch {
+    return null;
+  }
 }
 
 
@@ -128,7 +170,11 @@ export interface TenantMembershipReader {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  try {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  } catch {
+    return false;
+  }
 }
 
 function isCanonicalIdentifier(value: unknown): value is string {
@@ -156,48 +202,77 @@ export function createTenantContextResolver(reader: TenantMembershipReader) {
     authenticatedUserId: string;
     requestedSchoolId: string;
   }): Promise<TenantRequestContext | null> => {
-    if (!isCanonicalIdentifier(input.authenticatedUserId)
-      || !isCanonicalIdentifier(input.requestedSchoolId)) return null;
-
-    const snapshot = await reader.loadTenantMembership({
-      authenticatedUserId: input.authenticatedUserId,
-      requestedSchoolId: input.requestedSchoolId,
-    });
-
-    if (!isRecord(snapshot) || !isRecord(snapshot.user) || !isRecord(snapshot.school)
-      || !isRecord(snapshot.membership)) return null;
-
-    const user = snapshot.user;
-    const school = snapshot.school;
-    const membership = snapshot.membership;
-
-    if (!isCanonicalIdentifier(user.id)
-      || user.id !== input.authenticatedUserId
-      || !isOneOf(USER_STATUSES, user.status)
-      || !isCanonicalIdentifier(school.id)
-      || school.id !== input.requestedSchoolId
-      || !isOneOf(SCHOOL_STATUSES, school.status)
-      || !isCanonicalIdentifier(membership.id)
-      || !isCanonicalIdentifier(membership.userId)
-      || !isCanonicalIdentifier(membership.schoolId)
-      || !isOneOf(SCHOOL_ROLES, membership.role)
-      || !isOneOf(MEMBERSHIP_STATUSES, membership.status)) {
+    let authenticatedUserId: unknown;
+    let requestedSchoolId: unknown;
+    try {
+      authenticatedUserId = input.authenticatedUserId;
+      requestedSchoolId = input.requestedSchoolId;
+    } catch {
       return null;
     }
 
-    return buildTenantRequestContext({
-      authenticatedUserId: input.authenticatedUserId,
-      userStatus: user.status,
-      schoolId: school.id,
-      schoolStatus: school.status,
-      membership: {
-        id: membership.id,
-        userId: membership.userId,
-        schoolId: membership.schoolId,
-        role: membership.role,
-        status: membership.status,
-      },
+    if (!isCanonicalIdentifier(authenticatedUserId)
+      || !isCanonicalIdentifier(requestedSchoolId)) return null;
+
+    const snapshot = await reader.loadTenantMembership({
+      authenticatedUserId,
+      requestedSchoolId,
     });
+
+    try {
+      if (!isRecord(snapshot)) return null;
+
+      // Read the three persisted records once, then detach every field before
+      // validating. This prevents mutable getters from changing a role or
+      // relationship between validation and context construction.
+      const userValue = snapshot.user;
+      const schoolValue = snapshot.school;
+      const membershipValue = snapshot.membership;
+      if (!isRecord(userValue) || !isRecord(schoolValue) || !isRecord(membershipValue)) {
+        return null;
+      }
+
+      const userId = userValue.id;
+      const userStatus = userValue.status;
+      const schoolId = schoolValue.id;
+      const schoolStatus = schoolValue.status;
+      const membershipId = membershipValue.id;
+      const membershipUserId = membershipValue.userId;
+      const membershipSchoolId = membershipValue.schoolId;
+      const membershipRole = membershipValue.role;
+      const membershipStatus = membershipValue.status;
+
+      if (!isCanonicalIdentifier(userId)
+        || userId !== authenticatedUserId
+        || !isOneOf(USER_STATUSES, userStatus)
+        || !isCanonicalIdentifier(schoolId)
+        || schoolId !== requestedSchoolId
+        || !isOneOf(SCHOOL_STATUSES, schoolStatus)
+        || !isCanonicalIdentifier(membershipId)
+        || !isCanonicalIdentifier(membershipUserId)
+        || !isCanonicalIdentifier(membershipSchoolId)
+        || !isOneOf(SCHOOL_ROLES, membershipRole)
+        || !isOneOf(MEMBERSHIP_STATUSES, membershipStatus)) {
+        return null;
+      }
+
+      return buildTenantRequestContext({
+        authenticatedUserId,
+        userStatus,
+        schoolId,
+        schoolStatus,
+        membership: {
+          id: membershipId,
+          userId: membershipUserId,
+          schoolId: membershipSchoolId,
+          role: membershipRole,
+          status: membershipStatus,
+        },
+      });
+    } catch {
+      // Throwing accessors and revoked proxies are invalid persistence results.
+      return null;
+    }
   };
 }
 
