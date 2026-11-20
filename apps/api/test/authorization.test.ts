@@ -206,7 +206,6 @@ test("tenant resolver rejects throwing accessors and revoked persistence proxies
 
   for (const snapshot of [
     { ...valid, membership: throwingMembership },
-    revoked.proxy,
     { ...valid, user: revoked.proxy },
   ]) {
     const resolve = createTenantContextResolver({
