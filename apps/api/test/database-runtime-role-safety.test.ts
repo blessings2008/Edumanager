@@ -140,7 +140,7 @@ test("rejects a runtime role that owns a tenant table or can assume its owner", 
   );
 });
 
-test("rejects incomplete snapshots, throwing accessors and revoked proxies", async () => {
+test("rejects incomplete snapshots, throwing accessors and revoked nested proxies", async () => {
   await assertSafetyCode(
     () => assertSafeTenantDatabaseRole(inspector({
       roleName: "edumanager_runtime",
@@ -164,7 +164,10 @@ test("rejects incomplete snapshots, throwing accessors and revoked proxies", asy
   const revoked = Proxy.revocable({}, {});
   revoked.revoke();
   await assertSafetyCode(
-    () => assertSafeTenantDatabaseRole(inspector(revoked.proxy), requiredTables),
+    () => assertSafeTenantDatabaseRole(inspector({
+      ...safeSnapshot,
+      settableRoles: [revoked.proxy],
+    }), requiredTables),
     "invalid_snapshot",
   );
 });
