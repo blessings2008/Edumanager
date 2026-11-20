@@ -61,7 +61,7 @@
 
 ### Deliberately not implemented yet
 - Authentication provider, credential/session lifecycle and application-user identity mapping.
-- Runtime database client, connection pool, least-privilege runtime role validation and transaction-scoped tenant-context integration. The membership reader and transaction helper are unconfigured adapters only; do not wire tenant-owned operations through a privileged RLS-bypass credential.
+- Runtime database client, connection pool and concrete runtime-role inspector remain unconfigured. A provider-neutral safety contract now validates an injected inspection snapshot for superuser/BYPASSRLS capabilities, roles the connection can assume, table ownership and RLS enablement. This is a contract with unit tests only: no live role has been inspected, no startup check is wired, and it does not validate policy expressions or grants. The membership reader and transaction helper remain unconfigured adapters; do not wire tenant-owned operations through a privileged RLS-bypass credential.
 - Tenant-aware RLS policies and cross-school database integration tests.
 - Student, guardian, staff, class, academic or finance tables.
 - Database-backed repositories and API routes.

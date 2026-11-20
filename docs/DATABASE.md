@@ -55,6 +55,18 @@ This is a deliberate locked state, not a completed authorization implementation.
 
 Migrations may use privileged database credentials in a controlled deployment environment. Application runtime credentials must be separate from migration credentials.
 
+## Provider-neutral runtime-role safety contract
+
+The API now defines an injected runtime-role inspection contract and a fail-closed validator. A concrete database adapter must report:
+
+- The current runtime role and whether it is a superuser or bypasses row-level security.
+- Every role the connection can assume, including the current role, with the same privilege flags.
+- For every required tenant table, whether row-level security is enabled and which role owns the table.
+
+The validator rejects privileged current roles, assumable superuser/BYPASSRLS roles, missing or duplicate table metadata, tables without RLS, and runtime connections that own or can assume a tenant-table owner. Inspection errors are normalized to a safe failure code.
+
+This is provider-neutral contract logic with unit tests only. No concrete PostgreSQL inspector, connection pool, runtime credential or API startup check is configured, and no live role has been verified. It does not prove that RLS policies exist, are correct, or are supported by appropriate grants. Those checks and real two-school PostgreSQL integration tests remain required before tenant-owned routes can be enabled.
+
 ## Transaction-scoped tenant context primitive
 
 The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
