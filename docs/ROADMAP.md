@@ -23,7 +23,7 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 - [ ] Build initial school setup wizard.
 - [ ] Review and apply the schema-contract alignment migration, then verify it against a clean database before runtime integration.
 - [x] Implement PostgreSQL 17 runtime-role catalog inspection and exercise it against a disposable PostgreSQL 17 CI service.
-- [ ] Require runtime-role inspection before a server-side school-membership resolver can be configured; fail app readiness when the inspector reports an unsafe or incomplete role.
+- [x] Require runtime-role inspection before a server-side school-membership resolver can be configured; fail app readiness when the inspector reports an unsafe or incomplete role.
 - [ ] Wire a real least-privilege runtime pool and inspector into the server entry point, provision/verify the runtime role, and confirm the live connection cannot assume privileged or tenant-table-owner roles.
 
 **Exit criteria:** two test schools can be created, users can be assigned to each, and cross-school access tests pass.
