@@ -21,6 +21,7 @@ const safeSnapshot = {
     qualifiedName,
     rowLevelSecurityEnabled: true,
     ownerRole: "edumanager_migrator",
+    runtimeCanUseOwnerPrivileges: false,
   })),
 };
 
@@ -81,6 +82,23 @@ test("rejects any privileged role the connection can assume", async () => {
       ],
     }), requiredTables),
     "assumable_privileged_role",
+  );
+});
+
+test("rejects tenant-table ownership inherited by a role the connection can set", async () => {
+  const tenantTables = safeSnapshot.tenantTables.map((table, index) => (
+    index === 0
+      ? {
+        ...table,
+        ownerRole: "edumanager_table_owner",
+        runtimeCanUseOwnerPrivileges: true,
+      }
+      : table
+  ));
+
+  await assertSafetyCode(
+    () => assertSafeTenantDatabaseRole(inspector({ ...safeSnapshot, tenantTables }), requiredTables),
+    "runtime_role_inherits_table_owner",
   );
 });
 

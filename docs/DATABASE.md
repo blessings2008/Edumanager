@@ -65,7 +65,9 @@ The API now defines an injected runtime-role inspection contract and a fail-clos
 
 The validator rejects privileged current roles, assumable superuser/BYPASSRLS roles, missing or duplicate table metadata, tables without RLS, and runtime connections that own or can assume a tenant-table owner. Inspection errors are normalized to a safe failure code.
 
-This is provider-neutral contract logic with unit tests only. No concrete PostgreSQL inspector, connection pool, runtime credential or API startup check is configured, and no live role has been verified. It does not prove that RLS policies exist, are correct, or are supported by appropriate grants. Those checks and real two-school PostgreSQL integration tests remain required before tenant-owned routes can be enabled.
+The provider-neutral validator is now backed by a concrete PostgreSQL 17 catalog inspector. It uses one parameterized query through an injected server-only executor to report the effective `current_user`, every role the login identity (`session_user`) can `SET ROLE` to, and RLS/owner metadata for configured ordinary or partitioned tables. For each possible `SET ROLE` target it also checks whether table-owner privileges are immediately inherited, so a role cannot evade the ownership check merely because the owner role itself is not settable. PostgreSQL's `pg_has_role(..., 'SET')` and `pg_has_role(..., 'USAGE')` checks are used for those separate capabilities. Required table identifiers are restricted to simple lowercase schema-qualified names and passed as query parameters.
+
+The inspector has unit tests with an injected fake executor only. It does not create a pool, read credentials, provision roles, or run at startup; no live runtime role has been inspected. It reports RLS enablement and ownership, not policy expressions, effective table grants, function side effects, or actual two-school isolation. Those checks and real PostgreSQL integration tests remain required before tenant-owned routes can be enabled.
 
 ## Transaction-scoped tenant context primitive
 
