@@ -20,6 +20,8 @@ interface TenantTableCapability {
   qualifiedName: string;
   rowLevelSecurityEnabled: boolean;
   ownerRole: string;
+  /** True when a role the connection can SET ROLE to inherits this owner's privileges. */
+  runtimeCanUseOwnerPrivileges: boolean;
 }
 
 interface RuntimeDatabaseRoleSnapshot {
@@ -36,7 +38,8 @@ export type RuntimeDatabaseRoleSafetyCode =
   | "assumable_privileged_role"
   | "missing_tenant_table"
   | "tenant_rls_disabled"
-  | "runtime_role_can_assume_table_owner";
+  | "runtime_role_can_assume_table_owner"
+  | "runtime_role_inherits_table_owner";
 
 /** Safe, stable failure code for startup diagnostics; never includes DB details. */
 export class RuntimeDatabaseRoleSafetyError extends Error {
@@ -85,14 +88,16 @@ function readTenantTableCapability(value: unknown): TenantTableCapability | null
     const qualifiedName = value.qualifiedName;
     const rowLevelSecurityEnabled = value.rowLevelSecurityEnabled;
     const ownerRole = value.ownerRole;
+    const runtimeCanUseOwnerPrivileges = value.runtimeCanUseOwnerPrivileges;
 
     if (!isNonBlankString(qualifiedName)
       || typeof rowLevelSecurityEnabled !== "boolean"
-      || !isNonBlankString(ownerRole)) {
+      || !isNonBlankString(ownerRole)
+      || typeof runtimeCanUseOwnerPrivileges !== "boolean") {
       return null;
     }
 
-    return { qualifiedName, rowLevelSecurityEnabled, ownerRole };
+    return { qualifiedName, rowLevelSecurityEnabled, ownerRole, runtimeCanUseOwnerPrivileges };
   } catch {
     return null;
   }
@@ -230,6 +235,9 @@ export async function assertSafeTenantDatabaseRole(
     }
     if (settableRoleNames.has(table.ownerRole)) {
       throw new RuntimeDatabaseRoleSafetyError("runtime_role_can_assume_table_owner");
+    }
+    if (table.runtimeCanUseOwnerPrivileges) {
+      throw new RuntimeDatabaseRoleSafetyError("runtime_role_inherits_table_owner");
     }
   }
 }
