@@ -27,11 +27,10 @@ async function withRuntimeInspector(
 ): Promise<void> {
   if (!connectionString) throw new Error("PostgreSQL integration test URL is not configured.");
 
-  const client = new Client({
-    connectionString,
-    user: runtimeRole,
-    password,
-  });
+  const runtimeConnection = new URL(connectionString);
+  runtimeConnection.username = runtimeRole;
+  runtimeConnection.password = password;
+  const client = new Client({ connectionString: runtimeConnection.toString() });
   await client.connect();
 
   try {
