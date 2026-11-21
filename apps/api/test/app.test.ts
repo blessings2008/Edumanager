@@ -322,7 +322,9 @@ test("school membership resolver prevents readiness when the inspected role is p
     },
   });
 
-  await assert.rejects(app.ready(), (error: unknown) => {
+  await assert.rejects(async () => {
+    await app.ready();
+  }, (error: unknown) => {
     assert.ok(error instanceof RuntimeDatabaseRoleSafetyError);
     assert.equal(error.code, "privileged_runtime_role");
     return true;
