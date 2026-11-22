@@ -58,7 +58,7 @@ function snapshotTenantPersistence(value: TenantPersistenceAdapter | undefined):
     return Object.freeze({
       // Snapshot both operations from one adapter so the startup inspection
       // cannot be wired independently from the resolver it is meant to protect.
-      resolveTenantContext: (input) => resolveTenantContext.call(value, input),
+      resolveTenantContext: (input: Parameters<TenantContextResolver>[0]) => resolveTenantContext.call(value, input),
       inspectDatabaseRole: () => inspectDatabaseRole.call(value),
       requiredTenantTables: Object.freeze(tableNames as string[]),
     });
