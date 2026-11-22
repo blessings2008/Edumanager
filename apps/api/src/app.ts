@@ -11,53 +11,60 @@ import {
 } from "./domain/tenant-authorization.js";
 import {
   assertSafeTenantDatabaseRole,
-  type RuntimeDatabaseRoleInspector,
 } from "./persistence/database-runtime-role-safety.js";
 
-export interface TenantDatabaseSafety {
-  /** Server-only inspector for the actual connection used by tenant persistence. */
-  inspector: RuntimeDatabaseRoleInspector;
-  /** Explicit, server-configured list of every tenant table used by the resolver. */
+export interface TenantPersistenceAdapter {
+  /** Server-only membership resolver backed by trusted persistence. */
+  resolveTenantContext: TenantContextResolver;
+  /**
+   * Inspect the same runtime executor/pool used by resolveTenantContext.
+   * Adapter implementations must construct both operations from one runtime
+   * persistence configuration rather than independently configured clients.
+   */
+  inspectDatabaseRole(): Promise<unknown>;
+  /** Every tenant table read by membership resolution. */
   requiredTenantTables: readonly string[];
 }
 
 export interface ApiDependencies {
   /** Optional trusted verifier. No adapter means protected routes deny by default. */
   authenticateRequest?: AuthenticationAdapter;
-  /** Server-side membership lookup. It must use trusted persistence and fail closed. */
-  resolveTenantContext?: TenantContextResolver;
-  /** Required whenever a tenant membership resolver is configured. */
-  tenantDatabaseSafety?: TenantDatabaseSafety;
+  /** One server-only adapter owns both membership resolution and its role inspection. */
+  tenantPersistence?: TenantPersistenceAdapter;
 }
 
+interface SnapshotTenantPersistence {
+  resolveTenantContext: TenantContextResolver;
+  inspectDatabaseRole: () => Promise<unknown>;
+  requiredTenantTables: readonly string[];
+}
 
-function snapshotTenantDatabaseSafety(value: TenantDatabaseSafety | undefined): TenantDatabaseSafety {
+function snapshotTenantPersistence(value: TenantPersistenceAdapter | undefined): SnapshotTenantPersistence {
   try {
     if (!value || typeof value !== "object") throw new TypeError();
 
-    const inspector = value.inspector;
+    const resolveTenantContext = value.resolveTenantContext;
+    const inspectDatabaseRole = value.inspectDatabaseRole;
     const requiredTenantTables = value.requiredTenantTables;
-    if (!inspector || typeof inspector !== "object" || !Array.isArray(requiredTenantTables)) {
+    if (typeof resolveTenantContext !== "function"
+      || typeof inspectDatabaseRole !== "function"
+      || !Array.isArray(requiredTenantTables)) {
       throw new TypeError();
     }
-
-    const inspect = inspector.inspect;
-    if (typeof inspect !== "function") throw new TypeError();
 
     const tableNames = Array.prototype.slice.call(requiredTenantTables) as unknown[];
     if (!tableNames.every((name) => typeof name === "string")) throw new TypeError();
 
-    return {
-      // Snapshot both the method and receiver so later dependency mutation
-      // cannot replace the check after the app has been constructed.
-      inspector: Object.freeze({
-        inspect: () => inspect.call(inspector),
-      }),
+    return Object.freeze({
+      // Snapshot both operations from one adapter so the startup inspection
+      // cannot be wired independently from the resolver it is meant to protect.
+      resolveTenantContext: (input) => resolveTenantContext.call(value, input),
+      inspectDatabaseRole: () => inspectDatabaseRole.call(value),
       requiredTenantTables: Object.freeze(tableNames as string[]),
-    };
+    });
   } catch {
     throw new Error(
-      "A runtime database-role inspector and required tenant-table list are required when school membership resolution is configured.",
+      "A single tenant persistence adapter with a membership resolver, runtime database-role inspector, and required tenant-table list is required.",
     );
   }
 }
@@ -67,9 +74,8 @@ export function buildApp(
   logger: boolean | object = true,
   dependencies: ApiDependencies = {},
 ): FastifyInstance {
-  const resolveTenantContext = dependencies.resolveTenantContext;
-  const tenantDatabaseSafety = resolveTenantContext
-    ? snapshotTenantDatabaseSafety(dependencies.tenantDatabaseSafety)
+  const tenantPersistence = dependencies.tenantPersistence
+    ? snapshotTenantPersistence(dependencies.tenantPersistence)
     : null;
 
   const app = Fastify({
@@ -85,11 +91,11 @@ export function buildApp(
   app.decorateRequest("tenantContext", null);
   app.register(cors, { origin: config.webOrigins, credentials: true });
 
-  if (tenantDatabaseSafety) {
+  if (tenantPersistence) {
     app.addHook("onReady", async () => {
       await assertSafeTenantDatabaseRole(
-        tenantDatabaseSafety.inspector,
-        tenantDatabaseSafety.requiredTenantTables,
+        { inspect: () => tenantPersistence.inspectDatabaseRole() },
+        tenantPersistence.requiredTenantTables,
       );
     });
   }
@@ -148,7 +154,7 @@ export function buildApp(
       return;
     }
 
-    const resolver = resolveTenantContext;
+    const resolver = tenantPersistence?.resolveTenantContext;
     if (!resolver) {
       reply.code(503).send({
         error: "Service Unavailable",
