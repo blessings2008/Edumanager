@@ -315,42 +315,196 @@ export interface StudentRecordAccessInput {
  * from an active class/subject/period assignment plus an active enrolment in
  * that same class and academic period.
  */
+const STUDENT_PORTAL_LINK_STATUSES = ["pending", "active", "revoked"] as const;
+const STUDENT_GUARDIAN_LINK_STATUSES = ["pending", "active", "revoked"] as const;
+const TEACHER_ASSIGNMENT_STATUSES = ["pending", "active", "ended"] as const;
+const STUDENT_ENROLMENT_STATUSES = ["pending", "active", "completed", "withdrawn"] as const;
+
+/**
+ * Detach relationship rows returned by persistence before evaluating access.
+ * A malformed row, throwing getter or revoked proxy invalidates the collection;
+ * authorization must never depend on repeatedly reading mutable adapter data.
+ */
+function snapshotRelationshipRows<T>(
+  value: unknown,
+  snapshotRow: (row: unknown) => T | null,
+): T[] | null {
+  try {
+    if (!Array.isArray(value)) return null;
+
+    const rows = value as unknown[];
+    const length = rows.length;
+    if (!Number.isSafeInteger(length) || length < 0) return null;
+
+    const snapshots: T[] = [];
+    for (let index = 0; index < length; index += 1) {
+      const snapshot = snapshotRow(rows[index]);
+      if (snapshot === null) return null;
+      snapshots.push(snapshot);
+    }
+    return snapshots;
+  } catch {
+    // Includes throwing array accessors and revoked array proxies.
+    return null;
+  }
+}
+
+function snapshotStudentPortalAccountLink(value: unknown): StudentPortalAccountLink | null {
+  if (!isRecord(value)) return null;
+
+  const schoolId = value.schoolId;
+  const studentId = value.studentId;
+  const userId = value.userId;
+  const status = value.status;
+
+  if (!isCanonicalIdentifier(schoolId)
+    || !isCanonicalIdentifier(studentId)
+    || !isCanonicalIdentifier(userId)
+    || !isOneOf(STUDENT_PORTAL_LINK_STATUSES, status)) return null;
+
+  return { schoolId, studentId, userId, status };
+}
+
+function snapshotStudentGuardianRelationship(value: unknown): StudentGuardianRelationship | null {
+  if (!isRecord(value)) return null;
+
+  const schoolId = value.schoolId;
+  const guardianUserId = value.guardianUserId;
+  const studentId = value.studentId;
+  const status = value.status;
+
+  if (!isCanonicalIdentifier(schoolId)
+    || !isCanonicalIdentifier(guardianUserId)
+    || !isCanonicalIdentifier(studentId)
+    || !isOneOf(STUDENT_GUARDIAN_LINK_STATUSES, status)) return null;
+
+  return { schoolId, guardianUserId, studentId, status };
+}
+
+function snapshotTeacherClassAssignment(value: unknown): TeacherClassAssignment | null {
+  if (!isRecord(value)) return null;
+
+  const schoolId = value.schoolId;
+  const teacherUserId = value.teacherUserId;
+  const classId = value.classId;
+  const subjectId = value.subjectId;
+  const academicPeriodId = value.academicPeriodId;
+  const status = value.status;
+
+  if (!isCanonicalIdentifier(schoolId)
+    || !isCanonicalIdentifier(teacherUserId)
+    || !isCanonicalIdentifier(classId)
+    || !isCanonicalIdentifier(subjectId)
+    || !isCanonicalIdentifier(academicPeriodId)
+    || !isOneOf(TEACHER_ASSIGNMENT_STATUSES, status)) return null;
+
+  return { schoolId, teacherUserId, classId, subjectId, academicPeriodId, status };
+}
+
+function snapshotStudentEnrolment(value: unknown): StudentEnrolment | null {
+  if (!isRecord(value)) return null;
+
+  const schoolId = value.schoolId;
+  const studentId = value.studentId;
+  const classId = value.classId;
+  const academicPeriodId = value.academicPeriodId;
+  const status = value.status;
+
+  if (!isCanonicalIdentifier(schoolId)
+    || !isCanonicalIdentifier(studentId)
+    || !isCanonicalIdentifier(classId)
+    || !isCanonicalIdentifier(academicPeriodId)
+    || !isOneOf(STUDENT_ENROLMENT_STATUSES, status)) return null;
+
+  return { schoolId, studentId, classId, academicPeriodId, status };
+}
+
+/**
+ * Resource-level gate for an individual student record.
+ * Call after tenant membership and coarse permission checks. Every relationship
+ * collection must come from trusted, school-scoped server-side queries.
+ *
+ * The input and every relevant relationship row are snapshotted once before
+ * policy evaluation. Malformed collections, accessors and revoked proxies
+ * fail closed instead of being allowed to change the decision mid-check.
+ *
+ * Student login is optional: self-access requires a separate active account
+ * link. Guardian access uses a student-record link. Teacher access is derived
+ * from an active class/subject/period assignment plus an active enrolment in
+ * that same class and academic period.
+ */
 export function canAccessStudentRecord(input: StudentRecordAccessInput): boolean {
-  if (!input.actorUserId.trim() || !input.schoolId.trim() || !input.studentId.trim()) return false;
-  if (input.action !== "read" && input.action !== "write") return false;
+  try {
+    if (!isRecord(input)) return false;
 
-  if (input.role === "school_owner" || input.role === "school_admin" || input.role === "school_staff") {
-    return hasSchoolPermission(input.role, input.action === "read" ? "students:read" : "students:write");
+    const role = input.role;
+    const actorUserId = input.actorUserId;
+    const schoolId = input.schoolId;
+    const studentId = input.studentId;
+    const action = input.action;
+
+    if (!isOneOf(SCHOOL_ROLES, role)
+      || !isCanonicalIdentifier(actorUserId)
+      || !isCanonicalIdentifier(schoolId)
+      || !isCanonicalIdentifier(studentId)
+      || (action !== "read" && action !== "write")) return false;
+
+    if (role === "school_owner" || role === "school_admin" || role === "school_staff") {
+      return hasSchoolPermission(role, action === "read" ? "students:read" : "students:write");
+    }
+
+    if (action !== "read") return false;
+
+    if (role === "student") {
+      const links = snapshotRelationshipRows(
+        input.studentPortalAccountLinks,
+        snapshotStudentPortalAccountLink,
+      );
+      if (!links) return false;
+
+      return links.some((link) => link.status === "active"
+        && link.schoolId === schoolId
+        && link.userId === actorUserId
+        && link.studentId === studentId);
+    }
+
+    if (role === "guardian") {
+      const relationships = snapshotRelationshipRows(
+        input.guardianRelationships,
+        snapshotStudentGuardianRelationship,
+      );
+      if (!relationships) return false;
+
+      return relationships.some((link) => link.status === "active"
+        && link.schoolId === schoolId
+        && link.guardianUserId === actorUserId
+        && link.studentId === studentId);
+    }
+
+    if (role === "teacher") {
+      const assignments = snapshotRelationshipRows(
+        input.teacherAssignments,
+        snapshotTeacherClassAssignment,
+      );
+      const enrolments = snapshotRelationshipRows(
+        input.studentEnrolments,
+        snapshotStudentEnrolment,
+      );
+      if (!assignments || !enrolments) return false;
+
+      return assignments.some((assignment) => assignment.status === "active"
+        && assignment.schoolId === schoolId
+        && assignment.teacherUserId === actorUserId
+        && enrolments.some((enrolment) => enrolment.status === "active"
+          && enrolment.schoolId === schoolId
+          && enrolment.studentId === studentId
+          && enrolment.classId === assignment.classId
+          && enrolment.academicPeriodId === assignment.academicPeriodId));
+    }
+
+    return false;
+  } catch {
+    // Runtime inputs originate at a persistence boundary and must fail closed.
+    return false;
   }
-
-  if (input.action !== "read") return false;
-
-  if (input.role === "student") {
-    return input.studentPortalAccountLinks.some((link) =>
-      link.status === "active" && link.schoolId === input.schoolId
-      && link.userId === input.actorUserId && link.studentId === input.studentId);
-  }
-
-  if (input.role === "guardian") {
-    return input.guardianRelationships.some((link) =>
-      link.status === "active" && link.schoolId === input.schoolId
-      && link.guardianUserId === input.actorUserId && link.studentId === input.studentId);
-  }
-
-  if (input.role === "teacher") {
-    return input.teacherAssignments.some((assignment) =>
-      assignment.status === "active" && assignment.schoolId === input.schoolId
-      && assignment.teacherUserId === input.actorUserId
-      && assignment.classId.trim().length > 0
-      && assignment.subjectId.trim().length > 0
-      && assignment.academicPeriodId.trim().length > 0
-      && input.studentEnrolments.some((enrolment) =>
-        enrolment.status === "active" && enrolment.schoolId === input.schoolId
-        && enrolment.studentId === input.studentId
-        && enrolment.classId.trim().length > 0 && enrolment.classId === assignment.classId
-        && enrolment.academicPeriodId.trim().length > 0
-        && enrolment.academicPeriodId === assignment.academicPeriodId));
-  }
-
-  return false;
 }
