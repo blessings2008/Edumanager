@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Timetable } from "./Timetable";
+import { Notices } from "./Notices";
 import type * as React from "react";
 import {
   ArrowUpRight, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown,
   ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, CreditCard, Download,
-  FileBarChart, GraduationCap, LayoutDashboard, Menu, MoreHorizontal, Plus,
+  FileBarChart, GraduationCap, LayoutDashboard, Menu, MoreHorizontal, Plus, Megaphone,
   Search, Settings, ShieldCheck, SlidersHorizontal, UserRound, Users, Wallet,
   X, Clock3, AlertCircle, CircleDollarSign, School, Sparkles,
 } from "lucide-react";
 
-type Page = "Overview" | "Students" | "Attendance" | "Academics" | "Timetable" | "Finance" | "Staff" | "Reports" | "Settings";
+type Page = "Overview" | "Students" | "Attendance" | "Academics" | "Timetable" | "Notices" | "Finance" | "Staff" | "Reports" | "Settings";
 type Student = { id: string; name: string; className: string; guardian: string; phone: string; status: "Active" | "Pending" };
 type StaffMember = { id: string; name: string; role: string; department: string; focus: string; status: "Active" | "On leave"; employment: string };
 
@@ -39,6 +40,7 @@ const navItems: { label: Page; icon: typeof LayoutDashboard; group: string }[] =
   { label: "Timetable", icon: CalendarDays, group: "WORKSPACE" },
   { label: "Finance", icon: Wallet, group: "MANAGEMENT" },
   { label: "Staff", icon: UserRound, group: "MANAGEMENT" },
+  { label: "Notices", icon: Megaphone, group: "MANAGEMENT" },
   { label: "Reports", icon: FileBarChart, group: "MANAGEMENT" },
   { label: "Settings", icon: Settings, group: "SYSTEM" },
 ];
@@ -107,6 +109,8 @@ function App() {
           {page === "Students" && <Students students={students} query={query} setQuery={setQuery} onAdd={() => setShowAddStudent(true)} />}
           {page === "Attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} presentCount={presentCount} absentCount={absentCount} lateCount={lateCount} />}
           {page === "Academics" && <Academics onNotify={announce} />}
+          {page === "Timetable" && <Timetable onNotify={announce} />}
+          {page === "Notices" && <Notices onNotify={announce} />}
           {page === "Timetable" && <Timetable onNotify={announce} />}
           {page === "Finance" && <Finance onNotify={announce} />}
           {page === "Staff" && <Staff onNotify={announce} />}
