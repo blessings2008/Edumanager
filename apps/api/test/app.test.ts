@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildApp } from "../src/app.js";
+import { buildApp, type TenantPersistenceAdapter } from "../src/app.js";
 import { readConfig } from "../src/config.js";
 import { createTenantContextResolver } from "../../../packages/contracts/src/authorization.js";
 import { SCHOOL_ROLES } from "../../../packages/contracts/src/identity.js";
@@ -39,6 +39,17 @@ function createSafeTenantDatabaseSafety() {
       }),
     },
     requiredTenantTables: [...requiredTenantTables],
+  };
+}
+
+function createTenantPersistence(
+  resolveTenantContext: TenantPersistenceAdapter["resolveTenantContext"],
+  safety = createSafeTenantDatabaseSafety(),
+): TenantPersistenceAdapter {
+  return {
+    resolveTenantContext,
+    inspectDatabaseRole: () => safety.inspector.inspect(),
+    requiredTenantTables: safety.requiredTenantTables,
   };
 }
 
@@ -286,12 +297,14 @@ test("school context route requires a configured membership resolver", async () 
 });
 
 
-test("school membership resolver requires a runtime database-role inspector", () => {
+test("school membership resolver requires one combined tenant persistence adapter", () => {
   assert.throws(
     () => buildApp(config, false, {
-      resolveTenantContext: async () => null,
+      tenantPersistence: {
+        resolveTenantContext: async () => null,
+      } as unknown as TenantPersistenceAdapter,
     }),
-    /runtime database-role inspector and required tenant-table list are required/,
+    /single tenant persistence adapter with a membership resolver, runtime database-role inspector, and required tenant-table list is required/,
   );
 });
 
@@ -312,14 +325,16 @@ test("school membership resolver prevents readiness when the inspected role is p
     })),
   };
   const app = buildApp(config, false, {
-    resolveTenantContext: async () => {
-      resolverCalled = true;
-      return null;
-    },
-    tenantDatabaseSafety: {
-      inspector: { inspect: async () => unsafeSnapshot },
-      requiredTenantTables: [...requiredTenantTables],
-    },
+    tenantPersistence: createTenantPersistence(
+      async () => {
+        resolverCalled = true;
+        return null;
+      },
+      {
+        inspector: { inspect: async () => unsafeSnapshot },
+        requiredTenantTables: [...requiredTenantTables],
+      },
+    ),
   });
 
   await assert.rejects(async () => {
@@ -332,34 +347,46 @@ test("school membership resolver prevents readiness when the inspected role is p
   assert.equal(resolverCalled, false);
 });
 
-test("tenant database safety dependencies are snapshotted before readiness", async () => {
+test("tenant persistence methods and required tables are snapshotted before readiness", async () => {
   const mutableTables = [...requiredTenantTables];
-  const inspector = {
-    inspect: async (): Promise<unknown> => ({
-      roleName: "edumanager_runtime",
-      settableRoles: [{
-        name: "edumanager_runtime",
-        isSuperuser: false,
-        bypassesRowLevelSecurity: false,
-      }],
-      tenantTables: requiredTenantTables.map((qualifiedName) => ({
-        qualifiedName,
-        rowLevelSecurityEnabled: true,
-        ownerRole: "edumanager_migrator",
-        runtimeCanUseOwnerPrivileges: false,
-      })),
+  let inspectionCalls = 0;
+  const safeSnapshot = {
+    roleName: "edumanager_runtime",
+    settableRoles: [{
+      name: "edumanager_runtime",
+      isSuperuser: false,
+      bypassesRowLevelSecurity: false,
+    }],
+    tenantTables: requiredTenantTables.map((qualifiedName) => ({
+      qualifiedName,
+      rowLevelSecurityEnabled: true,
+      ownerRole: "edumanager_migrator",
+      runtimeCanUseOwnerPrivileges: false,
+    })),
+  };
+  const tenantPersistence: TenantPersistenceAdapter = {
+    resolveTenantContext: async () => ({
+      userId: "user-a",
+      schoolId: "school-a",
+      membershipId: "membership-a",
+      role: "teacher",
     }),
+    inspectDatabaseRole: async () => {
+      inspectionCalls += 1;
+      return safeSnapshot;
+    },
+    requiredTenantTables: mutableTables,
   };
   const app = buildApp(config, false, {
-    resolveTenantContext: async () => null,
-    tenantDatabaseSafety: {
-      inspector,
-      requiredTenantTables: mutableTables,
-    },
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    tenantPersistence,
   });
 
-  inspector.inspect = async () => ({
-    roleName: "edumanager_runtime",
+  tenantPersistence.resolveTenantContext = async () => {
+    throw new Error("replacement membership resolver must not be used");
+  };
+  tenantPersistence.inspectDatabaseRole = async () => ({
+    ...safeSnapshot,
     settableRoles: [{
       name: "edumanager_runtime",
       isSuperuser: false,
@@ -370,14 +397,20 @@ test("tenant database safety dependencies are snapshotted before readiness", asy
   mutableTables[0] = "public.untrusted_replacement";
 
   await app.ready();
+  assert.equal(inspectionCalls, 1);
+  const response = await app.inject({
+    method: "GET",
+    url: "/api/v1/schools/school-a/context",
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
   await app.close();
 });
 
 test("school context route requires authentication before membership resolution", async () => {
   let resolverCalled = false;
   const app = buildApp(config, false, {
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async () => {
+    tenantPersistence: createTenantPersistence(async () => {
       resolverCalled = true;
       return {
         userId: "user-a",
@@ -385,7 +418,7 @@ test("school context route requires authentication before membership resolution"
         membershipId: "membership-a",
         role: "school_admin",
       };
-    },
+    }),
   });
   try {
     const response = await app.inject({
@@ -409,8 +442,7 @@ test("school context resolver receives only authenticated identity and requested
       schoolId: "forged-school",
       role: "school_owner",
     }),
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async (input) => {
+    tenantPersistence: createTenantPersistence(async (input) => {
       resolverCalls.push(input);
       return {
         userId: input.authenticatedUserId,
@@ -420,7 +452,7 @@ test("school context resolver receives only authenticated identity and requested
         platformRole: "platform_owner",
         permissions: ["*"],
       };
-    },
+    }),
   });
   try {
     const response = await app.inject({
@@ -463,8 +495,7 @@ test("school context route snapshots resolver context fields exactly once", asyn
 
   const app = buildApp(config, false, {
     authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async () => resolverContext,
+    tenantPersistence: createTenantPersistence(async () => resolverContext),
   });
   try {
     const response = await app.inject({
@@ -482,15 +513,14 @@ test("school context route snapshots resolver context fields exactly once", asyn
 test("school context route rejects resolver results whose accessors throw", async () => {
   const app = buildApp(config, false, {
     authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async () => ({
+    tenantPersistence: createTenantPersistence(async () => ({
       userId: "user-a",
       schoolId: "school-a",
       membershipId: "membership-a",
       get role(): string {
         throw new Error("private tenant context getter detail");
       },
-    }),
+    })),
   });
   try {
     const response = await app.inject({
@@ -522,8 +552,7 @@ test("school context route rejects mismatched or malformed resolver results", as
   for (const context of invalidContexts) {
     const app = buildApp(config, false, {
       authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
-      tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-      resolveTenantContext: async () => context,
+      tenantPersistence: createTenantPersistence(async () => context),
     });
     try {
       const response = await app.inject({
@@ -545,11 +574,10 @@ test("school context route rejects malformed requested school identifiers", asyn
   let resolverCalled = false;
   const app = buildApp(config, false, {
     authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async () => {
+    tenantPersistence: createTenantPersistence(async () => {
       resolverCalled = true;
       return null;
-    },
+    }),
   });
   try {
     const response = await app.inject({
@@ -566,10 +594,9 @@ test("school context route rejects malformed requested school identifiers", asyn
 test("school membership resolver normalizes persistence failures and ignores database HTTP statuses", async () => {
   const app = buildApp(config, false, {
     authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
-    resolveTenantContext: async () => {
+    tenantPersistence: createTenantPersistence(async () => {
       throw Object.assign(new Error("private membership query details"), { statusCode: 403 });
-    },
+    }),
   });
   try {
     const response = await app.inject({
@@ -623,8 +650,7 @@ test("school context route composes trusted membership snapshots and denies anot
       schoolId: schoolB,
       role: "school_owner",
     }),
-    resolveTenantContext,
-    tenantDatabaseSafety: createSafeTenantDatabaseSafety(),
+    tenantPersistence: createTenantPersistence(resolveTenantContext),
   });
 
   try {
