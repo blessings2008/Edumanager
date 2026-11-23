@@ -485,7 +485,7 @@ test("student resource authorization fails closed for malformed or hostile relat
     schoolId: "school-a",
     studentId: "student-a",
     userId: "student-login-a",
-    status: "active",
+    status: "active" as const,
   };
   const throwingLink = Object.defineProperty({ ...validLink }, "userId", {
     get() { throw new Error("private relationship detail"); },
