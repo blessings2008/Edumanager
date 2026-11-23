@@ -116,10 +116,16 @@ Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pa
 - Added a dedicated Timetable navigation section with weekday switching, class and teacher filters, lesson search, and read-only lesson detail previews.
 - Added an in-browser lesson creation flow with basic overlapping class, teacher and room checks. These checks are convenience validation only and are not authoritative scheduling controls.
 - All timetable entries and newly added lessons are illustrative browser-session data. Publishing, substitutions, teacher availability, room capacity, persistence, school-scoped authorization and server-side conflict checks remain unimplemented.
-- Pull request #43 is awaiting CI validation; this feature is not merged or deployed.
+- PR #43 was merged into `main` on 2026-11-23 after its CI validation passed. The timetable workspace is now part of the repository default branch; deployment status is tracked separately and is not implied by this merge.
 
 
 ### Frontend expansion — notices and announcements preview
 - Added a school communication workspace with searchable notices, category/status filters, pinned updates, detail views, and a compose/publish preview.
 - Added in-browser archive and pin interactions. All changes are temporary preview state; no email, SMS, WhatsApp or in-app delivery is configured.
 - Recipient targeting, consent, moderation, read receipts, delivery tracking, persistence and school-scoped authorization remain pending.
+
+
+### Verified frontend expansion — timetable and notices previews
+- PR #43 merged the timetable and notices workspaces into `main` on 2026-11-23. The timetable preview includes weekday switching, class/teacher filters, lesson search and read-only details, plus temporary in-browser lesson creation with convenience-only overlap checks.
+- The notices preview includes search, category/status filters, pinned updates, detail views, compose/publish preview, and temporary archive/pin interactions.
+- All timetable and notice content is illustrative client-side state. No persistent school data, recipient authorization, actual message delivery, audit history, server-side timetable validation or tenant isolation is implemented by these previews.
