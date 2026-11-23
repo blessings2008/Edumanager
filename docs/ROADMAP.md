@@ -130,3 +130,15 @@ Admissions, online exams/CBT, timetables, assignments, library, payroll, transpo
 ### Verified frontend preview progress — finance
 - [x] Add illustrative finance overview, fee schedule breakdowns, student fee statements, outstanding-balance filters and recent payment activity.
 - [ ] Implement approved school-specific fee schedules, persistent student ledgers, payment reconciliation, receipts, adjustments/reversals and financial audit history after tenant-safe access is verified.
+
+
+### Verified frontend preview progress — timetable
+- [x] Add timetable weekday switching, class/teacher filters, lesson search and read-only lesson details.
+- [x] Add temporary in-browser lesson creation with convenience-only class, teacher and room overlap checks.
+- [ ] Implement school-scoped timetable persistence, authoritative server-side conflict checks, teacher availability and controlled publishing.
+
+
+### Verified frontend preview progress — notices
+- [x] Add searchable notices, category/status filters, pinned updates, detail views and compose/publish preview.
+- [x] Add temporary in-browser archive and pin interactions.
+- [ ] Implement verified recipient targeting, consent/preferences, delivery adapters, read receipts, delivery history, persistence and school-scoped authorization.
