@@ -110,3 +110,10 @@ Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pa
 - Expanded the finance screen into Overview, Fee structures, Student statements and Payments sections, with period selection, sample collection totals, fee breakdowns, searchable/filterable statements and recent transaction history.
 - Statement balances are calculated from the in-memory illustrative billed and paid amounts. The sample data is not connected to a finance ledger; payment recording, fee schedule editing, receipts, exports and persistence remain disabled.
 - Live finance work remains gated on authenticated school-scoped access, auditable ledger operations, reconciliation, adjustment/reversal controls and cross-school isolation verification.
+
+
+### Frontend expansion — timetable workspace preview
+- Added a dedicated Timetable navigation section with weekday switching, class and teacher filters, lesson search, and read-only lesson detail previews.
+- Added an in-browser lesson creation flow with basic overlapping class, teacher and room checks. These checks are convenience validation only and are not authoritative scheduling controls.
+- All timetable entries and newly added lessons are illustrative browser-session data. Publishing, substitutions, teacher availability, room capacity, persistence, school-scoped authorization and server-side conflict checks remain unimplemented.
+- Pull request #43 is awaiting CI validation; this feature is not merged or deployed.
