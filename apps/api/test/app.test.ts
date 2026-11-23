@@ -407,6 +407,61 @@ test("tenant persistence methods and required tables are snapshotted before read
   await app.close();
 });
 
+test("tenant persistence operations are invoked without the mutable adapter receiver", async () => {
+  const receivers: unknown[] = [];
+  const safeSnapshot = {
+    roleName: "edumanager_runtime",
+    settableRoles: [{
+      name: "edumanager_runtime",
+      isSuperuser: false,
+      bypassesRowLevelSecurity: false,
+    }],
+    tenantTables: requiredTenantTables.map((qualifiedName) => ({
+      qualifiedName,
+      rowLevelSecurityEnabled: true,
+      ownerRole: "edumanager_migrator",
+      runtimeCanUseOwnerPrivileges: false,
+    })),
+  };
+  const tenantPersistence: TenantPersistenceAdapter = {
+    resolveTenantContext: async function (
+      this: unknown,
+      input: Parameters<TenantPersistenceAdapter["resolveTenantContext"]>[0],
+    ) {
+      receivers.push(this);
+      return {
+        userId: input.authenticatedUserId,
+        schoolId: input.requestedSchoolId,
+        membershipId: "membership-a",
+        role: "teacher",
+      };
+    },
+    inspectDatabaseRole: async function (this: unknown) {
+      receivers.push(this);
+      return safeSnapshot;
+    },
+    requiredTenantTables: [...requiredTenantTables],
+  };
+  const app = buildApp(config, false, {
+    authenticateRequest: async () => ({ userId: "user-a", userStatus: "active" }),
+    tenantPersistence,
+  });
+
+  try {
+    await app.ready();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/schools/school-a/context",
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { schoolId: "school-a", role: "teacher" });
+    assert.deepEqual(receivers, [undefined, undefined]);
+  } finally {
+    await app.close();
+  }
+});
+
+
 test("school context route requires authentication before membership resolution", async () => {
   let resolverCalled = false;
   const app = buildApp(config, false, {

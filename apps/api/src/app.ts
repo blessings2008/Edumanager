@@ -20,6 +20,8 @@ export interface TenantPersistenceAdapter {
    * Inspect the same runtime executor/pool used by resolveTenantContext.
    * Adapter implementations must construct both operations from one runtime
    * persistence configuration rather than independently configured clients.
+   * Both operations are invoked without the adapter as their `this` receiver;
+   * implement them as closures over trusted server-side wiring, not receiver state.
    */
   inspectDatabaseRole(): Promise<unknown>;
   /** Every tenant table read by membership resolution. */
@@ -58,8 +60,10 @@ function snapshotTenantPersistence(value: TenantPersistenceAdapter | undefined):
     return Object.freeze({
       // Snapshot both operations from one adapter so the startup inspection
       // cannot be wired independently from the resolver it is meant to protect.
-      resolveTenantContext: (input: Parameters<TenantContextResolver>[0]) => resolveTenantContext.call(value, input),
-      inspectDatabaseRole: () => inspectDatabaseRole.call(value),
+      // Invoke the captured functions unbound so mutable adapter receiver fields
+      // cannot redirect either operation after app construction.
+      resolveTenantContext: (input: Parameters<TenantContextResolver>[0]) => resolveTenantContext(input),
+      inspectDatabaseRole: () => inspectDatabaseRole(),
       requiredTenantTables: Object.freeze(tableNames as string[]),
     });
   } catch {
