@@ -1,3 +1,5 @@
+import type { FormEvent } from "react";
+import "./timetable.css";
 import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plus, Search, ShieldCheck, Users, X } from "lucide-react";
 
@@ -53,7 +55,7 @@ export function Timetable({ onNotify }: { onNotify: (message: string) => void })
   const dayCount = lessons.filter((lesson) => lesson.day === day).length;
   const openSlots = Math.max(0, 8 - dayCount);
 
-  function addLesson(event: React.FormEvent<HTMLFormElement>) {
+  function addLesson(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     if (draft.start >= draft.end) {
