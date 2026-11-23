@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Timetable } from "./Timetable";
 import type * as React from "react";
 import {
   ArrowUpRight, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown,
@@ -8,7 +9,7 @@ import {
   X, Clock3, AlertCircle, CircleDollarSign, School, Sparkles,
 } from "lucide-react";
 
-type Page = "Overview" | "Students" | "Attendance" | "Academics" | "Finance" | "Staff" | "Reports" | "Settings";
+type Page = "Overview" | "Students" | "Attendance" | "Academics" | "Timetable" | "Finance" | "Staff" | "Reports" | "Settings";
 type Student = { id: string; name: string; className: string; guardian: string; phone: string; status: "Active" | "Pending" };
 type StaffMember = { id: string; name: string; role: string; department: string; focus: string; status: "Active" | "On leave"; employment: string };
 
@@ -35,6 +36,7 @@ const navItems: { label: Page; icon: typeof LayoutDashboard; group: string }[] =
   { label: "Students", icon: Users, group: "WORKSPACE" },
   { label: "Attendance", icon: ClipboardCheck, group: "WORKSPACE" },
   { label: "Academics", icon: BookOpen, group: "WORKSPACE" },
+  { label: "Timetable", icon: CalendarDays, group: "WORKSPACE" },
   { label: "Finance", icon: Wallet, group: "MANAGEMENT" },
   { label: "Staff", icon: UserRound, group: "MANAGEMENT" },
   { label: "Reports", icon: FileBarChart, group: "MANAGEMENT" },
@@ -105,6 +107,7 @@ function App() {
           {page === "Students" && <Students students={students} query={query} setQuery={setQuery} onAdd={() => setShowAddStudent(true)} />}
           {page === "Attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} presentCount={presentCount} absentCount={absentCount} lateCount={lateCount} />}
           {page === "Academics" && <Academics onNotify={announce} />}
+          {page === "Timetable" && <Timetable onNotify={announce} />}
           {page === "Finance" && <Finance onNotify={announce} />}
           {page === "Staff" && <Staff onNotify={announce} />}
           {page === "Reports" && <Reports onNotify={announce} />}
