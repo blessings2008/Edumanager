@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Megaphone, Plus, Search, Pin, CalendarDays, Users, X, Archive, Send, Filter, BellRing } from "lucide-react";
 import "./notices.css";
 
@@ -15,7 +16,7 @@ export function Notices({onNotify}:{onNotify:(message:string)=>void}){
  const [items,setItems]=useState(seed),[query,setQuery]=useState(""),[category,setCategory]=useState("All categories"),[tab,setTab]=useState("All"),[compose,setCompose]=useState(false),[selected,setSelected]=useState<Notice|null>(null);
  const [draft,setDraft]=useState({title:"",body:"",category:"Academic" as Notice["category"],audience:audiences[0]});
  const filtered=useMemo(()=>items.filter(n=>(tab==="All"||n.status===tab)&&(category==="All categories"||n.category===category)&&[n.title,n.body,n.author,n.audience].join(" ").toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.id-a.id),[items,tab,category,query]);
- const publish=(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const item:Notice={...draft,id:Math.max(0,...items.map(n=>n.id))+1,date:"23 Nov 2026",author:"Brian Moyo",pinned:false,status:"Published"};setItems(current=>[item,...current]);setTab("All");setCategory("All categories");setQuery("");setCompose(false);setDraft({title:"",body:"",category:"Academic",audience:audiences[0]});onNotify("Sample notice published in this preview.");};
+ const publish=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const item:Notice={...draft,id:Math.max(0,...items.map(n=>n.id))+1,date:"23 Nov 2026",author:"Brian Moyo",pinned:false,status:"Published"};setItems(current=>[item,...current]);setTab("All");setCategory("All categories");setQuery("");setCompose(false);setDraft({title:"",body:"",category:"Academic",audience:audiences[0]});onNotify("Sample notice published in this preview.");};
  const update=(id:number,patch:Partial<Notice>,message:string)=>{setItems(current=>current.map(n=>n.id===id?{...n,...patch}:n));setSelected(null);onNotify(message);};
  return <>
  <div className="page-heading"><div><span className="page-eyebrow">SCHOOL COMMUNICATION</span><h1>Notices & announcements</h1><p>Share school updates with students, staff and parents or guardians.</p></div><div className="heading-actions"><button className="button-primary" onClick={()=>setCompose(true)}><Plus size={16}/> Create notice</button></div></div>
