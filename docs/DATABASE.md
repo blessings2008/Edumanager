@@ -78,6 +78,43 @@ The settings are transaction-local and are cleared by PostgreSQL at transaction 
 - Keep all tenant-owned operations within the transaction callback so they use the same checked-out connection and transaction-local context.
 - Add real PostgreSQL integration tests for cross-school reads, inserts, updates, deletes and relationship changes.
 
+## Provider-neutral runtime-role safety contract
+
+The API now defines an injected runtime-role inspection contract and a fail-closed validator. A concrete database adapter must report:
+
+- The current runtime role and whether it is a superuser or bypasses row-level security.
+- Every role the connection can assume, including the current role, with the same privilege flags.
+- For every required tenant table, whether row-level security is enabled and which role owns the table.
+
+The validator rejects privileged current roles, assumable superuser/BYPASSRLS roles, missing or duplicate table metadata, tables without RLS, and runtime connections that own or can assume a tenant-table owner. Inspection errors are normalized to a safe failure code.
+
+The provider-neutral validator is now backed by a concrete PostgreSQL 17 catalog inspector. It uses one parameterized query through an injected server-only executor to report the effective `current_user`, every role the login identity (`session_user`) can `SET ROLE` to, and RLS/owner metadata for configured ordinary or partitioned tables. For each possible `SET ROLE` target it also checks whether table-owner privileges are immediately inherited, so a role cannot evade the ownership check merely because the owner role itself is not settable. PostgreSQL's `pg_has_role(..., 'SET')` and `pg_has_role(..., 'USAGE')` checks are used for those separate capabilities. Required table identifiers are restricted to simple lowercase schema-qualified names and passed as query parameters.
+
+The inspector has unit tests with an injected fake executor only. It does not create a pool, read credentials, provision roles, or run at startup; no live runtime role has been inspected. It reports RLS enablement and ownership, not policy expressions, effective table grants, function side effects, or actual two-school isolation. Those checks and real PostgreSQL integration tests remain required before tenant-owned routes can be enabled.
+
+## Transaction-scoped tenant context primitive
+
+The API contains an unconfigured `withTenantTransaction` PostgreSQL helper. It:
+
+1. Reads and validates the user, school and membership identifiers into a detached snapshot before awaiting pool acquisition, so later mutation of the caller-owned context cannot change the identity installed in the transaction.
+2. Checks out one connection from an injected pool.
+3. Starts a transaction.
+4. Installs the validated identifiers with parameterized `set_config(..., true)` calls.
+5. Runs supplied repository work through a frozen query-only executor; the callback cannot access the pool connection's `release` control. Before forwarding SQL, a conservative lexical guard permits only one `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `MERGE` statement (including supported `WITH` queries ending in one of those commands), rejects top-level transaction/session commands, Unicode-escaped identifiers (which the lexer deliberately does not decode), and direct `set_config` calls that could overwrite the tenant settings. The executor shallow-copies the parameter array at call time before asynchronous validation and dispatch, so later changes to array slots or length cannot change the dispatched parameter vector; nested parameter objects are not deep-cloned.
+6. Limits that executor to the callback's lifetime. It closes the executor when callback work settles, waits for every query already started by the callback to settle before either COMMIT or ROLLBACK, including when the callback itself rejects, and rejects later calls made through retained executor references.
+7. Commits on success, or rolls back on failure, then releases the connection.
+8. Marks the connection for disposal if rollback itself fails.
+
+The settings are transaction-local and are cleared by PostgreSQL at transaction end, preventing one request's tenant context from leaking through a reused pooled connection. The helper deliberately does not set a role or copy a role claim into the database context; policies must derive permissions from persisted school membership. The SQL guard is defense-in-depth, not a complete PostgreSQL parser: it does not prevent indirect session changes performed inside arbitrary database functions, so callbacks must remain trusted repository code and the least-privilege role/RLS requirements below remain mandatory.
+
+**This helper is not an RLS policy and does not make a privileged connection safe.** It is not wired into the server entry point and has no configured pool or runtime credentials. Before using it for tenant-owned queries:
+
+- Use a least-privilege runtime role that is neither superuser nor granted `BYPASSRLS`.
+- Ensure the runtime role does not own tenant tables unless those tables explicitly use `FORCE ROW LEVEL SECURITY`.
+- Add policies that validate the transaction-local user and school against active persisted membership; never trust a role supplied by the request.
+- Keep all tenant-owned operations within the transaction callback so they use the same checked-out connection and transaction-local context.
+- Add real PostgreSQL integration tests for cross-school reads, inserts, updates, deletes and relationship changes.
+
 ## Important modelling decisions
 
 - A student is a school record, not necessarily a login account. Student profiles and login identities must remain separate.
