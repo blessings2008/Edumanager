@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import "./timetable.css";
 import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plus, Search, ShieldCheck, Users, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Clock3, Plus, Search, ShieldCheck, Users, X } from "lucide-react";
 
 type Lesson = {
   id: number;
