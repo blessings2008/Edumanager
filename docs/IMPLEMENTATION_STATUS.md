@@ -117,3 +117,9 @@ Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pa
 - Added an in-browser lesson creation flow with basic overlapping class, teacher and room checks. These checks are convenience validation only and are not authoritative scheduling controls.
 - All timetable entries and newly added lessons are illustrative browser-session data. Publishing, substitutions, teacher availability, room capacity, persistence, school-scoped authorization and server-side conflict checks remain unimplemented.
 - Pull request #43 is awaiting CI validation; this feature is not merged or deployed.
+
+
+### Frontend expansion — notices and announcements preview
+- Added a school communication workspace with searchable notices, category/status filters, pinned updates, detail views, and a compose/publish preview.
+- Added in-browser archive and pin interactions. All changes are temporary preview state; no email, SMS, WhatsApp or in-app delivery is configured.
+- Recipient targeting, consent, moderation, read receipts, delivery tracking, persistence and school-scoped authorization remain pending.
