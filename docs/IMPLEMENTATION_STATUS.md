@@ -83,3 +83,30 @@ Requirements: Node.js 22.12+ and pnpm 10+.
 5. API health: http://localhost:4000/health
 
 Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pass before a branch is considered validated and merged.
+
+
+### Verified frontend expansion — academic workspace preview
+- The web preview now separates academic overview, classes/streams, subject catalogue and assessment schedule into navigable sections, with a school-year timeline, class summaries, level filtering and responsive layouts.
+- All displayed academic records are illustrative client-side sample data. No academic API, persistence, grading, mark entry, learner result publication, or authorization capability is implied by this UI work; those items remain pending until the tenant-safe identity and persistence dependencies are complete.
+
+
+### Verified frontend expansion — student directory preview
+- The student directory preview now supports combined name/ID/class/guardian search with class and enrolment-status filters, a clear-filters action, and a read-only sample student profile dialog.
+- These interactions operate only on illustrative in-browser sample records. Student editing, guardian verification, enrolment history, persistence, and school-scoped authorization remain unimplemented.
+
+
+### Verified frontend expansion — staff directory preview
+- The staff directory preview now includes combined name/employee ID/role/department/subject search, department and status filters, clear filters, and a read-only sample staff profile dialog.
+- Staff invitation, identity verification, employment history, payroll, contacts, role grants, persistence and school-scoped authorization remain unimplemented; all displayed staff profiles are illustrative sample data.
+
+
+### Verified frontend expansion — attendance register preview
+- The attendance register now includes a date and session selector, combined student/ID/class search, class and status filters, clear filters, explicit per-student status selection, and a mark-all-present preview action.
+- Counts and register summaries recalculate from the in-memory sample records. Date/session selections do not load historical registers; all changes remain temporary and are not persisted.
+- Historical attendance, class rosters, staff verification, audit trails, and school-scoped storage remain pending.
+
+
+### Verified frontend expansion — finance preview
+- Expanded the finance screen into Overview, Fee structures, Student statements and Payments sections, with period selection, sample collection totals, fee breakdowns, searchable/filterable statements and recent transaction history.
+- Statement balances are calculated from the in-memory illustrative billed and paid amounts. The sample data is not connected to a finance ledger; payment recording, fee schedule editing, receipts, exports and persistence remain disabled.
+- Live finance work remains gated on authenticated school-scoped access, auditable ledger operations, reconciliation, adjustment/reversal controls and cross-school isolation verification.

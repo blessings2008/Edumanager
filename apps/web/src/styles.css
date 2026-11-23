@@ -19,3 +19,103 @@
 
 .academic-session{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:15px;padding:17px 19px;background:linear-gradient(110deg,#fff 0%,#f5f7ff 100%);border:1px solid #e8ecf7;border-radius:10px}.academic-session h2{margin:6px 0 4px;color:#2a374e;font:800 17px Manrope}.academic-session p{margin:0;color:#8b96a7;font-size:9px}.report-unit{padding:5px 7px;color:#8995a7;background:#f5f6fa;border-radius:5px;font-size:7px;font-weight:800;letter-spacing:.7px}.bar-chart{height:220px;display:flex;align-items:flex-end;justify-content:space-around;gap:14px;padding:18px 8px 0;border-bottom:1px solid #edf0f4}.bar-column{height:100%;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px}.bar-column strong{color:#78859a;font-size:8px}.bar-track{width:min(42px,70%);height:145px;display:flex;align-items:flex-end;overflow:hidden;background:#f1f3ff;border-radius:7px 7px 2px 2px}.bar-track i{display:block;width:100%;background:linear-gradient(180deg,#7183ed,#4d64df);border-radius:7px 7px 0 0}.bar-column>span{color:#98a2b1;font-size:8px}.report-donut{width:150px;height:150px;display:grid;place-items:center;margin:10px auto 17px;background:conic-gradient(#5269e0 0 74.6%,#e9edf8 74.6% 100%);border-radius:50%;position:relative}.report-donut:before{content:"";position:absolute;inset:13px;background:#fff;border-radius:50%}.report-donut>div{position:relative;z-index:1;text-align:center}.report-donut strong,.report-donut span{display:block}.report-donut strong{color:#2a374e;font:800 22px Manrope}.report-donut span{margin-top:3px;color:#929dad;font-size:8px}.report-legend{display:grid;gap:10px}.report-legend span{display:flex;align-items:center;gap:7px;color:#8792a3;font-size:8px}.report-legend i{width:7px;height:7px;border-radius:50%}.legend-collected{background:#5269e0}.legend-outstanding{background:#e9edf8}.report-legend b{margin-left:auto;color:#47546b;font-size:8px}
 @media(max-width:560px){.academic-session{align-items:flex-start;flex-direction:column}.bar-chart{height:190px}.bar-track{height:120px}.report-donut{width:130px;height:130px}}
+
+/* Expanded academic workspace */
+.academic-tabs{display:flex;gap:5px;margin:0 0 16px;padding:4px;width:max-content;max-width:100%;overflow-x:auto;background:#f1f3f8;border:1px solid #e8ebf2;border-radius:9px}
+.academic-tabs button{display:flex;align-items:center;gap:8px;padding:9px 13px;color:#7d899c;background:transparent;border:0;border-radius:6px;font-size:9px;font-weight:700;white-space:nowrap}
+.academic-tabs button.selected{color:#435bd0;background:#fff;box-shadow:0 1px 5px #1b294012}
+.academic-tabs button span{padding:2px 6px;color:#7c88a0;background:#f1f3f8;border-radius:10px;font-size:8px}
+.term-list{display:grid;gap:17px}.term-item>div:first-child{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px}.term-item strong{color:#3b4960;font-size:10px}.term-item>div:first-child>span:nth-child(2){color:#929dad;font-size:8px}.term-track{height:7px;margin-top:9px;overflow:hidden;background:#eef0f7;border-radius:20px}.term-track i{display:block;height:100%;background:#6376df;border-radius:20px}
+.academic-upcoming{display:grid;gap:3px}.academic-upcoming>div{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid #f0f2f6}.academic-upcoming>div:last-child{border-bottom:0}.academic-upcoming>div>span:nth-child(2){min-width:0;flex:1}.academic-upcoming strong,.academic-upcoming small{display:block}.academic-upcoming strong{color:#46536a;font-size:9px}.academic-upcoming small{margin-top:4px;color:#9aa4b3;font-size:8px}.calendar-tile{width:31px;height:31px;display:grid;place-items:center;flex:none;color:#596ed8;background:#eff1ff;border-radius:8px}
+.class-card-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.class-mini-card,.subject-card{padding:14px;background:#fbfcfe;border:1px solid #edf0f5;border-radius:8px}.class-mini-card>span,.subject-code{color:#6577d6;font-size:8px;font-weight:800;letter-spacing:.5px}.class-mini-card h3,.subject-card h3{margin:12px 0 6px;color:#354259;font:700 12px Manrope}.class-mini-card p,.subject-card p{margin:0 0 10px;color:#8792a3;font-size:8px}.class-mini-card small,.subject-card small{color:#9aa4b3;font-size:8px}
+.subject-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:15px}.subject-card{background:#fff}.subject-card>div{display:flex;align-items:center;justify-content:space-between;gap:6px}.subject-count{color:#9aa4b3;font-size:8px}
+@media(max-width:850px){.class-card-grid,.subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.academic-tabs{width:100%;justify-content:flex-start}.academic-tabs button{padding:8px 10px}.term-item>div:first-child{grid-template-columns:1fr auto}.term-item>div:first-child>span:nth-child(2){grid-column:1}.term-item>div:first-child .status-pill{grid-column:2;grid-row:1/3}.class-card-grid,.subject-grid{grid-template-columns:1fr 1fr}.list-toolbar .select-control{flex:1}.academic-upcoming .status-pill{font-size:7px}}
+
+
+/* Student directory profile preview */
+.student-toolbar .search-box{max-width:360px}
+.student-toolbar .select-control{min-width:132px;max-width:170px}
+.student-detail-modal{width:min(100%,520px)}
+.student-detail-status{display:flex;align-items:center;gap:11px;margin:18px 0;padding:13px;background:#f8f9fd;border:1px solid #edf0f5;border-radius:9px}
+.student-detail-status>span:nth-child(2){min-width:0;flex:1}
+.student-detail-status strong,.student-detail-status small{display:block}
+.student-detail-status strong{color:#3b4960;font-size:10px}
+.student-detail-status small{margin-top:4px;color:#98a2b1;font-size:8px}
+.student-detail-avatar{width:39px;height:39px;display:grid;place-items:center;flex:none;color:#5268d7;background:#e9edff;border-radius:10px;font-size:11px;font-weight:800}
+.student-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.student-detail-grid>div{min-width:0;padding:12px;background:#fbfcfe;border:1px solid #eef0f5;border-radius:8px}
+.student-detail-grid span,.student-detail-grid strong{display:block;overflow-wrap:anywhere}
+.student-detail-grid span{margin-bottom:6px;color:#929dad;font-size:8px}
+.student-detail-grid strong{color:#3b4960;font-size:10px}
+@media(max-width:850px){.student-toolbar .search-box{flex-basis:100%;max-width:none}.student-toolbar .select-control{flex:1;min-width:0;max-width:none}}
+@media(max-width:560px){.student-detail-grid{grid-template-columns:1fr}.student-toolbar .secondary-button{flex:1;justify-content:center}}
+
+
+/* Staff directory filters and profile preview */
+.staff-toolbar{align-items:flex-start;flex-direction:column;gap:14px}
+.staff-filter-row{display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap}
+.staff-filter-row .search-box{flex:1 1 230px;min-width:190px}
+.staff-filter-row .select-control{min-width:145px}
+.staff-focus{margin-top:4px;color:#929dad;font-size:8px}
+.staff-detail-modal{width:min(100%,520px)}
+.status-pill.on-leave{color:#a66b1e;background:#fff5e6}
+@media(max-width:700px){.staff-filter-row .search-box{flex-basis:100%}.staff-filter-row .select-control{flex:1;min-width:0}}
+@media(max-width:560px){.staff-filter-row .secondary-button{flex:1;justify-content:center}}
+
+
+/* Attendance register controls */
+.attendance-controls{gap:16px}
+.attendance-date-fields{display:flex;align-items:center;gap:12px}
+.attendance-date-fields label{display:flex;align-items:center;gap:8px;color:#8b96a6;font-size:9px}
+.attendance-date-fields label span{font-weight:700;white-space:nowrap}
+.attendance-date-fields input,.attendance-date-fields select{min-height:34px;padding:0 9px;color:#43516a;background:#fff;border:1px solid #e5e9f0;border-radius:7px;font:inherit}
+.attendance-date-fields input{font-size:9px}
+.attendance-toolbar{justify-content:space-between}
+.attendance-bulk-actions{display:flex;gap:7px;flex-wrap:wrap}
+.attendance-filter-row{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid #edf0f4}
+.attendance-filter-row .search-box{max-width:380px}
+.attendance-status-select{min-width:105px;min-height:30px;padding:0 8px;font-size:9px}
+.attendance-register-footer{display:flex;justify-content:space-between;gap:12px;padding:11px 17px;color:#8b96a6;font-size:8px;border-top:1px solid #edf0f4}
+@media(max-width:760px){.attendance-datebar.attendance-controls{align-items:flex-start;flex-direction:column}.attendance-date-fields{width:100%;flex-wrap:wrap}.attendance-date-fields label{flex:1;min-width:180px;justify-content:space-between}.attendance-date-fields input,.attendance-date-fields select{flex:1;min-width:0}.attendance-filter-row{flex-wrap:wrap}.attendance-filter-row .search-box{flex-basis:100%;max-width:none}.attendance-filter-row .select-control{flex:1;min-width:0}.attendance-toolbar{align-items:flex-start;flex-direction:column}.attendance-bulk-actions{width:100%}}
+@media(max-width:480px){.attendance-register-footer{flex-direction:column}.attendance-date-fields label{min-width:100%}}
+
+
+/* Finance workspace preview */
+.finance-period-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-3px 0 16px;padding:10px 14px;background:#fbfcfe;border:1px solid #edf0f5;border-radius:9px}
+.finance-period-row label{display:flex;align-items:center;gap:10px;color:#7f8b9d;font-size:9px;font-weight:700}
+.finance-period-row>span{display:flex;align-items:center;gap:6px;color:#929dad;font-size:8px}
+.finance-tabs{margin-top:2px}
+.finance-overview-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:14px}
+.finance-collection-panel{display:flex;flex-direction:column;gap:15px}
+.finance-progress-track{height:10px;overflow:hidden;background:#edf0f7;border-radius:20px}
+.finance-progress-track span{display:block;height:100%;background:#5d72dc;border-radius:20px}
+.finance-progress-legend{display:grid;gap:9px}
+.finance-progress-legend span{display:flex;align-items:center;gap:7px;color:#8994a5;font-size:9px}
+.finance-progress-legend i{width:8px;height:8px;border-radius:50%;background:#5d72dc}
+.finance-progress-legend span:nth-child(2) i{background:#e3e7f0}
+.finance-progress-legend strong{margin-left:auto;color:#46536a;font-size:9px}
+.finance-shortcuts{display:flex;flex-direction:column}
+.finance-shortcuts>button{display:flex;align-items:center;gap:10px;padding:12px 0;text-align:left;background:transparent;border:0;border-bottom:1px solid #eff1f5}
+.finance-shortcuts>button:last-child{border-bottom:0}
+.finance-shortcuts>button>span:nth-child(2){min-width:0;flex:1}
+.finance-shortcuts>button strong,.finance-shortcuts>button small{display:block}
+.finance-shortcuts>button strong{color:#46536a;font-size:9px}
+.finance-shortcuts>button small{margin-top:4px;color:#98a2b1;font-size:8px}
+.fee-structure-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px}
+.fee-structure-card{padding:16px;background:#fbfcfe;border:1px solid #edf0f5;border-radius:9px}
+.fee-structure-card>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fee-class-label{color:#929dad;font-size:8px}
+.fee-structure-card h3{margin:16px 0;color:#354259;font:800 20px Manrope}
+.fee-structure-card h3 small{color:#929dad;font-size:8px;font-weight:500}
+.fee-line,.fee-total{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #edf0f5;color:#8994a5;font-size:9px}
+.fee-line strong,.fee-total strong{color:#46536a;font-size:9px}
+.fee-total{margin-top:4px;color:#5369d4;font-weight:700}
+.fee-total strong{color:#5369d4}
+.finance-balance{color:#b77925}
+.finance-paid{color:#27845d}
+.finance-list-toolbar{align-items:center}
+.finance-filter-row .search-box{flex:1 1 240px;max-width:380px}
+.finance-filter-row .select-control{min-width:130px}
+@media(max-width:760px){.finance-overview-grid{grid-template-columns:1fr}.finance-period-row{align-items:flex-start;flex-direction:column}.finance-filter-row .search-box{flex-basis:100%;max-width:none}.finance-filter-row .select-control{flex:1;min-width:0}}
+@media(max-width:560px){.fee-structure-grid{grid-template-columns:1fr;padding:12px}.finance-list-toolbar{align-items:flex-start;flex-direction:column}.finance-filter-row .secondary-button{flex:1;justify-content:center}}

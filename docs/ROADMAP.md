@@ -39,7 +39,7 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 ## Phase 2 — School administration
 - [ ] School profile and branding.
 - [ ] Academic years and terms.
-- [ ] Classes, streams, and subjects.
+- [ ] Classes, streams, and subjects. (Frontend preview sections exist; school-scoped persistence remains pending.)
 - [ ] Staff profiles and teacher assignments.
 - [ ] Student enrolment and student records.
 - [ ] Guardian profiles and verified student links.
@@ -103,3 +103,30 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 ## Later backlog
 
 Admissions, online exams/CBT, timetables, assignments, library, payroll, transport, boarding, mobile applications, provider payment integrations, and advanced analytics will be evaluated after the MVP is proven.
+
+
+### Verified frontend progress
+- [x] Add an interactive academic workspace preview with overview, classes/streams, subject catalogue and assessment schedule sections.
+- [x] Add sample academic-year timeline, class-level filtering and responsive academic summary cards.
+- [ ] Connect academic workspace to authenticated, school-scoped repositories and APIs.
+- [ ] Implement persistent academic years, terms, class/subject relationships, assessment setup, grading and results only after tenant isolation and identity boundaries are verified.
+
+
+### Verified frontend preview progress
+- [x] Add student directory search, class/status filters, and read-only sample profile details.
+- [ ] Implement authenticated student records, guardian verification, enrolment history, and school-scoped persistence.
+
+
+### Verified frontend preview progress — staff
+- [x] Add searchable staff directory with department/status filters and read-only sample profiles.
+- [ ] Implement verified staff identity, school-scoped access, employment records and authorised staff administration.
+
+
+### Verified frontend preview progress — attendance
+- [x] Add sample attendance date/session controls, student/class search, class/status filters and explicit status updates.
+- [ ] Implement historical registers, school-scoped attendance persistence, authorised corrections and audit history.
+
+
+### Verified frontend preview progress — finance
+- [x] Add illustrative finance overview, fee schedule breakdowns, student fee statements, outstanding-balance filters and recent payment activity.
+- [ ] Implement approved school-specific fee schedules, persistent student ledgers, payment reconciliation, receipts, adjustments/reversals and financial audit history after tenant-safe access is verified.
