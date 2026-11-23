@@ -39,6 +39,7 @@
 - Guardian access is tied to an active guardian-to-student-record link, not a student login identity.
 - Teacher access is derived from an active teacher/class/subject/academic-period assignment matched to the student's active enrolment in the same school, class and academic period.
 - Unit tests cover mismatched actors, schools, student records, classes, periods and inactive/revoked relationships.
+- Resource-policy inputs and relevant portal, guardian, teacher-assignment and enrolment rows are detached into one-time snapshots before authorization; malformed rows, throwing accessors and revoked proxies fail closed.
 - These remain pure shared policy functions. They are not yet connected to authenticated school-data routes or database-backed repositories.
 
 ### Supabase foundation applied and verified

@@ -401,3 +401,161 @@ test("school owners, administrators and staff follow their explicit student perm
   assert.equal(canAccessStudentRecord({ ...base, role: "school_admin", action: "write" }), true);
   assert.equal(canAccessStudentRecord({ ...base, role: "school_staff", action: "write" }), true);
 });
+
+
+test("student self-access snapshots the actor and portal-link fields exactly once", () => {
+  const reads = { actor: 0, school: 0, student: 0, user: 0, status: 0 };
+  const link = {
+    get schoolId() { reads.school += 1; return "school-a"; },
+    get studentId() { reads.student += 1; return "student-a"; },
+    get userId() { reads.user += 1; return reads.user === 1 ? "student-login-a" : "attacker"; },
+    get status(): "active" { reads.status += 1; return "active"; },
+  };
+  const input = {
+    ...accessBase,
+    role: "student" as const,
+    get actorUserId() {
+      reads.actor += 1;
+      return reads.actor === 1 ? "student-login-a" : "attacker";
+    },
+    studentPortalAccountLinks: [link],
+  };
+
+  assert.equal(canAccessStudentRecord(input), true);
+  assert.deepEqual(reads, { actor: 1, school: 1, student: 1, user: 1, status: 1 });
+});
+
+test("guardian access snapshots the guardian relationship fields exactly once", () => {
+  const reads = { guardian: 0, school: 0, student: 0, status: 0 };
+  const relationship = {
+    get schoolId() { reads.school += 1; return "school-a"; },
+    get guardianUserId() {
+      reads.guardian += 1;
+      return reads.guardian === 1 ? "guardian-a" : "attacker";
+    },
+    get studentId() { reads.student += 1; return "student-a"; },
+    get status(): "active" { reads.status += 1; return "active"; },
+  };
+
+  assert.equal(canAccessStudentRecord({
+    ...accessBase,
+    role: "guardian",
+    actorUserId: "guardian-a",
+    guardianRelationships: [relationship],
+  }), true);
+  assert.deepEqual(reads, { guardian: 1, school: 1, student: 1, status: 1 });
+});
+
+test("teacher access snapshots assignment and enrolment fields exactly once", () => {
+  const reads = { assignmentClass: 0, enrolmentClass: 0 };
+  const assignment = {
+    schoolId: "school-a",
+    teacherUserId: "teacher-a",
+    get classId() {
+      reads.assignmentClass += 1;
+      return reads.assignmentClass === 1 ? "class-a" : "class-b";
+    },
+    subjectId: "maths",
+    academicPeriodId: "term-1",
+    status: "active" as const,
+  };
+  const enrolment = {
+    schoolId: "school-a",
+    studentId: "student-a",
+    get classId() {
+      reads.enrolmentClass += 1;
+      return reads.enrolmentClass === 1 ? "class-a" : "class-b";
+    },
+    academicPeriodId: "term-1",
+    status: "active" as const,
+  };
+
+  assert.equal(canAccessStudentRecord({
+    ...accessBase,
+    role: "teacher",
+    actorUserId: "teacher-a",
+    teacherAssignments: [assignment],
+    studentEnrolments: [enrolment],
+  }), true);
+  assert.deepEqual(reads, { assignmentClass: 1, enrolmentClass: 1 });
+});
+
+test("student resource authorization fails closed for malformed or hostile relationship data", () => {
+  const validLink = {
+    schoolId: "school-a",
+    studentId: "student-a",
+    userId: "student-login-a",
+    status: "active",
+  };
+  const throwingLink = Object.defineProperty({ ...validLink }, "userId", {
+    get() { throw new Error("private relationship detail"); },
+  });
+  const revokedLinks = Proxy.revocable([validLink], {});
+  revokedLinks.revoke();
+
+  const base = {
+    ...accessBase,
+    role: "student" as const,
+    actorUserId: "student-login-a",
+  };
+  for (const links of [
+    [throwingLink],
+    [validLink, { ...validLink, userId: " " }],
+    revokedLinks.proxy,
+  ]) {
+    assert.equal(canAccessStudentRecord({
+      ...base,
+      studentPortalAccountLinks: links as never,
+    }), false);
+  }
+
+  const throwingInput = Object.defineProperty({ ...base, studentPortalAccountLinks: [validLink] }, "actorUserId", {
+    get() { throw new Error("private actor detail"); },
+  });
+  assert.equal(canAccessStudentRecord(throwingInput as never), false);
+  assert.equal(canAccessStudentRecord({
+    ...base,
+    role: "unknown" as never,
+    studentPortalAccountLinks: [validLink],
+  }), false);
+});
+
+test("guardian and teacher policies fail closed on malformed or revoked relationship collections", () => {
+  const guardianLink = {
+    schoolId: "school-a",
+    guardianUserId: "guardian-a",
+    studentId: "student-a",
+    status: "active",
+  };
+  const revokedGuardianLinks = Proxy.revocable([guardianLink], {});
+  revokedGuardianLinks.revoke();
+
+  assert.equal(canAccessStudentRecord({
+    ...accessBase,
+    role: "guardian",
+    actorUserId: "guardian-a",
+    guardianRelationships: revokedGuardianLinks.proxy as never,
+  }), false);
+
+  const assignment = {
+    schoolId: "school-a",
+    teacherUserId: "teacher-a",
+    classId: "class-a",
+    subjectId: "",
+    academicPeriodId: "term-1",
+    status: "active" as const,
+  };
+  assert.equal(canAccessStudentRecord({
+    ...accessBase,
+    role: "teacher",
+    actorUserId: "teacher-a",
+    teacherAssignments: [assignment],
+    studentEnrolments: [{
+      schoolId: "school-a",
+      studentId: "student-a",
+      classId: "class-a",
+      academicPeriodId: "term-1",
+      status: "active",
+    }],
+  }), false);
+});
