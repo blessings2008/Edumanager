@@ -1,4 +1,3 @@
-import { createTenantContextResolver } from "../../../../packages/contracts/src/authorization.js";
 import type { TenantContextResolver } from "../domain/tenant-authorization.js";
 import {
   createPostgresRuntimeRoleInspector,
@@ -16,6 +15,19 @@ import {
  */
 export interface PostgresTenantPersistenceQueryExecutor
   extends PostgresQueryExecutor, PostgresRuntimeRoleQueryExecutor {}
+
+/** Structural input accepted by the shared tenant-context resolver factory. */
+export interface TenantMembershipSnapshotReader {
+  loadTenantMembership(input: {
+    authenticatedUserId: string;
+    requestedSchoolId: string;
+  }): Promise<unknown>;
+}
+
+/** Inject the canonical provider-neutral membership policy at composition time. */
+export type TenantContextResolverFactory = (
+  reader: TenantMembershipSnapshotReader,
+) => TenantContextResolver;
 
 /** Shape accepted by Fastify's provider-neutral tenant persistence boundary. */
 export interface PostgresTenantPersistenceAdapter {
@@ -72,6 +84,10 @@ function snapshotRequiredTenantTables(value: readonly string[]): readonly string
  * Compose PostgreSQL membership resolution and runtime-role inspection over
  * one snapshotted query executor.
  *
+ * The canonical provider-neutral resolver factory is injected so this API
+ * package does not import another workspace package's source into its own
+ * TypeScript root. The caller supplies trusted server-side policy code.
+ *
  * This factory does not create a pool, read credentials, provision roles, or
  * configure the API server. The caller remains responsible for supplying a
  * server-only executor whose connections use consistent restricted runtime
@@ -80,12 +96,25 @@ function snapshotRequiredTenantTables(value: readonly string[]): readonly string
 export function createPostgresTenantPersistenceAdapter(
   executor: PostgresTenantPersistenceQueryExecutor,
   requiredTenantTables: readonly string[],
+  createResolver: TenantContextResolverFactory,
 ): PostgresTenantPersistenceAdapter {
+  if (typeof createResolver !== "function") {
+    throw new TypeError("A trusted tenant-context resolver factory is required.");
+  }
+
   const sharedExecutor = snapshotQueryExecutor(executor);
   const tableNames = snapshotRequiredTenantTables(requiredTenantTables);
 
   const membershipReader = createPostgresTenantMembershipReader(sharedExecutor);
-  const resolveMembership = createTenantContextResolver(membershipReader);
+  const resolverReader = Object.freeze({
+    loadTenantMembership: (input: Parameters<TenantMembershipSnapshotReader["loadTenantMembership"]>[0]) =>
+      membershipReader.loadTenantMembership(input),
+  });
+  const resolveMembership = createResolver(resolverReader);
+  if (typeof resolveMembership !== "function") {
+    throw new TypeError("The tenant-context resolver factory must return a resolver.");
+  }
+
   const roleInspector = createPostgresRuntimeRoleInspector(sharedExecutor, tableNames);
 
   const resolveTenantContext: TenantContextResolver = (input) => resolveMembership(input);

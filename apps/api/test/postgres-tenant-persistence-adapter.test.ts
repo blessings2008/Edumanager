@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createTenantContextResolver } from "../../../packages/contracts/src/authorization.js";
 import { buildApp } from "../src/app.js";
 import { readConfig } from "../src/config.js";
 import {
@@ -94,7 +95,11 @@ test("PostgreSQL tenant adapter uses one snapshotted executor for inspection and
   });
 
   const configuredTables = [...requiredTables];
-  const adapter = createPostgresTenantPersistenceAdapter(executor, configuredTables);
+  const adapter = createPostgresTenantPersistenceAdapter(
+    executor,
+    configuredTables,
+    createTenantContextResolver,
+  );
 
   // Mutating caller-owned configuration after construction cannot redirect
   // either operation or narrow the startup inspection requirements.
@@ -155,6 +160,7 @@ test("PostgreSQL tenant adapter rejects an executor whose query accessor throws"
     () => createPostgresTenantPersistenceAdapter(
       executor as unknown as PostgresTenantPersistenceQueryExecutor,
       requiredTables,
+      createTenantContextResolver,
     ),
     {
       name: "TypeError",
@@ -173,8 +179,29 @@ test("PostgreSQL tenant adapter rejects invalid required tables before querying"
   };
 
   assert.throws(
-    () => createPostgresTenantPersistenceAdapter(executor, ["public.users; SELECT 1"]),
+    () => createPostgresTenantPersistenceAdapter(
+      executor,
+      ["public.users; SELECT 1"],
+      createTenantContextResolver,
+    ),
     /unique, simple schema-qualified PostgreSQL identifiers/,
   );
   assert.equal(queryCount, 0);
+});
+
+test("PostgreSQL tenant adapter requires a resolver factory", () => {
+  const executor: PostgresTenantPersistenceQueryExecutor = {
+    async query() {
+      return { rows: [] };
+    },
+  };
+
+  assert.throws(
+    () => createPostgresTenantPersistenceAdapter(
+      executor,
+      requiredTables,
+      null as unknown as typeof createTenantContextResolver,
+    ),
+    /trusted tenant-context resolver factory/,
+  );
 });
