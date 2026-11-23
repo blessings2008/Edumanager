@@ -1,5 +1,7 @@
 # EduManager — Delivery Roadmap
 
+> **Scope update (2026-11-19):** Use [PRODUCT_AND_IMPLEMENTATION_SPECIFICATION.md](./PRODUCT_AND_IMPLEMENTATION_SPECIFICATION.md) as the current founder-approved delivery plan. This earlier roadmap records historical progress and partial foundations; its narrower phase ordering and deferred-module scope must not override the new specification.
+
 This roadmap is dependency-aware. Dates will be added only after the scope and daily progress are verified.
 
 ## Phase 0 — Product and engineering foundation
