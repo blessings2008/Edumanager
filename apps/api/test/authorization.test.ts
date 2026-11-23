@@ -136,6 +136,116 @@ test("tenant resolver factory loads exact persisted identities and builds a trus
   }]);
 });
 
+test("tenant resolver snapshots each persisted field once before building context", async () => {
+  const reads = {
+    userRecord: 0, schoolRecord: 0, membershipRecord: 0,
+    userId: 0, userStatus: 0, schoolId: 0, schoolStatus: 0,
+    membershipId: 0, membershipUserId: 0, membershipSchoolId: 0,
+    membershipRole: 0, membershipStatus: 0,
+  };
+  const resolve = createTenantContextResolver({
+    loadTenantMembership: async () => ({
+      get user() {
+        reads.userRecord += 1;
+        return {
+          get id() { reads.userId += 1; return reads.userId === 1 ? "user-a" : "user-b"; },
+          get status() { reads.userStatus += 1; return reads.userStatus === 1 ? "active" : "disabled"; },
+        };
+      },
+      get school() {
+        reads.schoolRecord += 1;
+        return {
+          get id() { reads.schoolId += 1; return reads.schoolId === 1 ? "school-a" : "school-b"; },
+          get status() { reads.schoolStatus += 1; return reads.schoolStatus === 1 ? "active" : "suspended"; },
+        };
+      },
+      get membership() {
+        reads.membershipRecord += 1;
+        return {
+          get id() { reads.membershipId += 1; return reads.membershipId === 1 ? "membership-a" : ""; },
+          get userId() { reads.membershipUserId += 1; return reads.membershipUserId === 1 ? "user-a" : "user-b"; },
+          get schoolId() { reads.membershipSchoolId += 1; return reads.membershipSchoolId === 1 ? "school-a" : "school-b"; },
+          get role() { reads.membershipRole += 1; return reads.membershipRole === 1 ? "teacher" : "school_owner"; },
+          get status() { reads.membershipStatus += 1; return reads.membershipStatus === 1 ? "active" : "revoked"; },
+        };
+      },
+    }),
+  });
+
+  assert.deepEqual(await resolve({
+    authenticatedUserId: "user-a",
+    requestedSchoolId: "school-a",
+  }), {
+    userId: "user-a",
+    schoolId: "school-a",
+    membershipId: "membership-a",
+    role: "teacher",
+  });
+  assert.deepEqual(reads, {
+    userRecord: 1, schoolRecord: 1, membershipRecord: 1,
+    userId: 1, userStatus: 1, schoolId: 1, schoolStatus: 1,
+    membershipId: 1, membershipUserId: 1, membershipSchoolId: 1,
+    membershipRole: 1, membershipStatus: 1,
+  });
+});
+
+test("tenant resolver rejects throwing accessors and revoked persistence proxies", async () => {
+  const valid = {
+    user: { id: "user-a", status: "active" },
+    school: { id: "school-a", status: "active" },
+    membership: {
+      id: "membership-a", userId: "user-a", schoolId: "school-a",
+      role: "teacher", status: "active",
+    },
+  };
+  const throwingMembership = Object.defineProperty({ ...valid.membership }, "role", {
+    get() { throw new Error("private membership adapter detail"); },
+  });
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+
+  for (const snapshot of [
+    { ...valid, membership: throwingMembership },
+    { ...valid, user: revoked.proxy },
+  ]) {
+    const resolve = createTenantContextResolver({
+      loadTenantMembership: async () => snapshot,
+    });
+    assert.equal(await resolve({
+      authenticatedUserId: "user-a",
+      requestedSchoolId: "school-a",
+    }), null);
+  }
+});
+
+test("tenant context builder snapshots the membership role before returning it", () => {
+  let roleReads = 0;
+  const membership = {
+    id: "membership-a",
+    userId: "user-a",
+    schoolId: "school-a",
+    get role() {
+      roleReads += 1;
+      return roleReads === 1 ? "teacher" : "school_owner";
+    },
+    status: "active" as const,
+  };
+
+  assert.deepEqual(buildTenantRequestContext({
+    authenticatedUserId: "user-a",
+    userStatus: "active",
+    schoolId: "school-a",
+    schoolStatus: "active",
+    membership,
+  }), {
+    userId: "user-a",
+    schoolId: "school-a",
+    membershipId: "membership-a",
+    role: "teacher",
+  });
+  assert.equal(roleReads, 1);
+});
+
 test("tenant resolver factory rejects inactive, mismatched and malformed persisted snapshots", async () => {
   const valid = {
     user: { id: "user-a", status: "active" },
