@@ -36,6 +36,9 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 
 **Verified partial runtime-role safety foundation (not live startup enforcement):** a PostgreSQL 17 catalog inspector now supplies the provider-neutral safety contract through one parameterized query. It checks the current role, the login's complete `SET ROLE` closure, RLS enablement, table ownership and inherited owner privileges. Tests use an injected fake executor only. It is not wired to a live pool or startup path and does not verify RLS policy expressions, grants or cross-school isolation.
 
+
+**Verified per-checkout PostgreSQL connection guard (not runtime wiring):** a provider-specific runner now inspects each physical connection immediately after pool checkout and before tenant work, using the same captured query/release methods for inspection and the transaction. Unsafe or unknown leases are discarded before transaction start. This is per-checkout verification, not proactive inspection of idle connections, and it adds one catalog query per tenant transaction. The runner is not configured in the server entry point; the Phase 1 startup, least-privilege role, RLS and two-school isolation exit criteria remain pending.
+
 ## Phase 2 — School administration
 - [ ] School profile and branding.
 - [ ] Academic years and terms.
