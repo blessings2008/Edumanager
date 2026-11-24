@@ -67,6 +67,11 @@
 - Database-backed repositories and API routes.
 - Production deployment configuration.
 
+### Verified per-checkout PostgreSQL role verification primitive — not wired
+- Added `createPostgresVerifiedTenantTransactionRunner`. Each tenant transaction checks out one physical pool connection, snapshots its query/release methods, executes the PostgreSQL role/RLS catalog inspection on that same connection, and only then passes the captured connection into the tenant transaction helper.
+- An unsafe, malformed or uninspectable connection is released with an error before `BEGIN`; the repository callback is not invoked. The configured tenant-table list and pool checkout method are snapshotted when the runner is created.
+- This verifies every connection when it is checked out for tenant work; it does not proactively enumerate idle pool connections. It adds one catalog inspection query per tenant transaction. The server entry point still has no configured runtime pool or credentials, and RLS policy correctness and live cross-school isolation remain pending.
+
 ### Remaining integration blockers
 The live database still has only the initial migration applied, so its persisted role/status vocabulary does not yet fully match the updated shared contracts. The follow-up migration must be reviewed and explicitly applied before the membership reader can safely be wired. The membership reader, transaction helper and PostgreSQL 17 role inspector have no configured runtime query executor, pool or credential; the inspector has not examined a live role and is not wired into startup. It reports catalog role/table capabilities but does not validate RLS policy expressions, grants or actual cross-tenant behavior. Authentication architecture, secure identity mapping, tenant-scoped database access, RLS policies and cross-tenant integration tests also remain pending.
 

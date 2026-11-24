@@ -88,7 +88,7 @@ export const POSTGRES_RUNTIME_ROLE_INSPECTION_SQL = `
 
 const qualifiedTablePattern = /^[a-z_][a-z0-9_$]{0,62}\.[a-z_][a-z0-9_$]{0,62}$/;
 
-function snapshotRequiredTenantTables(value: readonly string[]): readonly string[] {
+export function snapshotRequiredPostgresTenantTables(value: readonly string[]): readonly string[] {
   let names: unknown[];
   try {
     if (!Array.isArray(value)) throw new TypeError();
@@ -143,7 +143,7 @@ export function createPostgresRuntimeRoleInspector(
   executor: PostgresRuntimeRoleQueryExecutor,
   requiredTenantTables: readonly string[],
 ): RuntimeDatabaseRoleInspector {
-  const tableNames = snapshotRequiredTenantTables(requiredTenantTables);
+  const tableNames = snapshotRequiredPostgresTenantTables(requiredTenantTables);
 
   let query: PostgresRuntimeRoleQueryExecutor["query"];
   try {
