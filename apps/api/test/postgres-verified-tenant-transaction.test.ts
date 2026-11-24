@@ -261,3 +261,35 @@ test("rejects invalid tenant-table requirements before connecting to the pool", 
 
   assert.equal(connectCalls, 0);
 });
+
+
+test("discards a checked-out connection when the catalog returns a malformed snapshot", async () => {
+  const fixture = makeConnection(null);
+  let workCalled = false;
+  const runner = createPostgresVerifiedTenantTransactionRunner({
+    connect: async () => fixture.connection,
+  }, requiredTables);
+
+  await assert.rejects(
+    runner.run(context, async () => {
+      workCalled = true;
+      return undefined;
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof RuntimeDatabaseRoleSafetyError);
+      assert.equal(error.code, "invalid_snapshot");
+      return true;
+    },
+  );
+
+  assert.equal(workCalled, false);
+  assert.deepEqual(fixture.calls.map((call) => call.sql), [
+    POSTGRES_RUNTIME_ROLE_INSPECTION_SQL,
+  ]);
+  assert.equal(fixture.releaseErrors.length, 1);
+  assert.ok(fixture.releaseErrors[0] instanceof RuntimeDatabaseRoleSafetyError);
+  assert.equal(
+    (fixture.releaseErrors[0] as RuntimeDatabaseRoleSafetyError).code,
+    "invalid_snapshot",
+  );
+});
