@@ -293,3 +293,49 @@ test("discards a checked-out connection when the catalog returns a malformed sna
     "invalid_snapshot",
   );
 });
+
+
+test("discards a connection when the driver result exposes a throwing rows accessor", async () => {
+  const calls: string[] = [];
+  const releaseErrors: Array<Error | undefined> = [];
+  let workCalled = false;
+  const malformedResult = Object.defineProperty({}, "rows", {
+    get() {
+      throw new Error("private driver detail");
+    },
+  });
+  const connection: TenantTransactionConnection = {
+    async query(sql) {
+      calls.push(sql);
+      if (sql === POSTGRES_RUNTIME_ROLE_INSPECTION_SQL) return malformedResult;
+      return { rows: [] };
+    },
+    release(error) {
+      releaseErrors.push(error);
+    },
+  };
+  const runner = createPostgresVerifiedTenantTransactionRunner({
+    connect: async () => connection,
+  }, requiredTables);
+
+  await assert.rejects(
+    runner.run(context, async () => {
+      workCalled = true;
+      return undefined;
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof RuntimeDatabaseRoleSafetyError);
+      assert.equal(error.code, "invalid_snapshot");
+      return true;
+    },
+  );
+
+  assert.equal(workCalled, false);
+  assert.deepEqual(calls, [POSTGRES_RUNTIME_ROLE_INSPECTION_SQL]);
+  assert.equal(releaseErrors.length, 1);
+  assert.ok(releaseErrors[0] instanceof RuntimeDatabaseRoleSafetyError);
+  assert.equal(
+    (releaseErrors[0] as RuntimeDatabaseRoleSafetyError).code,
+    "invalid_snapshot",
+  );
+});
