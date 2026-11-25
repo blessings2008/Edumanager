@@ -1,5 +1,8 @@
 import type { TenantRequestContext } from "../domain/tenant-authorization.js";
-import { assertSafeTenantDatabaseRole } from "./database-runtime-role-safety.js";
+import {
+  assertSafeTenantDatabaseRole,
+  RuntimeDatabaseRoleSafetyError,
+} from "./database-runtime-role-safety.js";
 import {
   createPostgresRuntimeRoleInspector,
   snapshotRequiredPostgresTenantTables,
@@ -19,10 +22,13 @@ export interface PostgresVerifiedTenantTransactionRunner {
   ): Promise<T>;
 }
 
-function toReleaseError(value: unknown): Error {
-  return value instanceof Error
-    ? value
-    : new Error("PostgreSQL tenant connection could not be verified.");
+function toReleaseError(value: unknown): RuntimeDatabaseRoleSafetyError {
+  try {
+    if (value instanceof RuntimeDatabaseRoleSafetyError) return value;
+  } catch {
+    // Thrown values can themselves be hostile proxies.
+  }
+  return new RuntimeDatabaseRoleSafetyError("inspection_failed");
 }
 
 /**
@@ -38,27 +44,28 @@ function snapshotConnection(
   try {
     release = connection.release;
   } catch (error) {
-    throw error;
+    throw toReleaseError(error);
   }
 
   if (typeof release !== "function") {
-    throw new TypeError("A PostgreSQL tenant connection is required.");
+    throw new RuntimeDatabaseRoleSafetyError("inspection_failed");
   }
 
   let query: TenantTransactionConnection["query"];
   try {
     query = connection.query;
   } catch (error) {
+    const safeError = toReleaseError(error);
     try {
-      release.call(connection, toReleaseError(error));
+      release.call(connection, safeError);
     } catch {
-      // Preserve the original connection-access failure.
+      // Preserve the stable connection-inspection failure.
     }
-    throw error;
+    throw safeError;
   }
 
   if (typeof query !== "function") {
-    const error = new TypeError("A PostgreSQL tenant connection is required.");
+    const error = new RuntimeDatabaseRoleSafetyError("inspection_failed");
     try {
       release.call(connection, error);
     } catch {
@@ -142,12 +149,13 @@ export function createPostgresVerifiedTenantTransactionRunner(
         await assertSafeTenantDatabaseRole(inspector, tableNames);
         return connection;
       } catch (error) {
+        const safeError = toReleaseError(error);
         try {
-          connection.release(toReleaseError(error));
+          connection.release(safeError);
         } catch {
-          // Preserve the inspection failure; the connection must not be reused.
+          // Preserve the stable inspection failure; the connection must not be reused.
         }
-        throw error;
+        throw safeError;
       }
     },
   });
