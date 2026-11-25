@@ -339,3 +339,82 @@ test("discards a connection when the driver result exposes a throwing rows acces
     "invalid_snapshot",
   );
 });
+
+
+test("normalizes a throwing query accessor and releases the checked-out connection", async () => {
+  const releaseErrors: Array<Error | undefined> = [];
+  const rawConnection = {} as TenantTransactionConnection;
+  Object.defineProperty(rawConnection, "release", {
+    value(error?: Error) {
+      releaseErrors.push(error);
+    },
+  });
+  Object.defineProperty(rawConnection, "query", {
+    get() {
+      throw new Error("private connection driver detail");
+    },
+  });
+
+  let workCalled = false;
+  const runner = createPostgresVerifiedTenantTransactionRunner({
+    connect: async () => rawConnection,
+  }, requiredTables);
+
+  await assert.rejects(
+    runner.run(context, async () => {
+      workCalled = true;
+      return undefined;
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof RuntimeDatabaseRoleSafetyError);
+      assert.equal(error.code, "inspection_failed");
+      assert.doesNotMatch(error.message, /private connection driver detail/);
+      return true;
+    },
+  );
+
+  assert.equal(workCalled, false);
+  assert.equal(releaseErrors.length, 1);
+  assert.ok(releaseErrors[0] instanceof RuntimeDatabaseRoleSafetyError);
+  assert.equal(
+    (releaseErrors[0] as RuntimeDatabaseRoleSafetyError).code,
+    "inspection_failed",
+  );
+});
+
+test("normalizes a throwing release accessor before attempting to read the query method", async () => {
+  let queryReads = 0;
+  const rawConnection = {} as TenantTransactionConnection;
+  Object.defineProperty(rawConnection, "release", {
+    get() {
+      throw new Error("private connection release detail");
+    },
+  });
+  Object.defineProperty(rawConnection, "query", {
+    get() {
+      queryReads += 1;
+      return async () => ({ rows: [] });
+    },
+  });
+
+  let workCalled = false;
+  const runner = createPostgresVerifiedTenantTransactionRunner({
+    connect: async () => rawConnection,
+  }, requiredTables);
+
+  await assert.rejects(
+    runner.run(context, async () => {
+      workCalled = true;
+      return undefined;
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof RuntimeDatabaseRoleSafetyError);
+      assert.equal(error.code, "inspection_failed");
+      assert.doesNotMatch(error.message, /private connection release detail/);
+      return true;
+    },
+  );
+
+  assert.equal(queryReads, 0);
+  assert.equal(workCalled, false);
+});
