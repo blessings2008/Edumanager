@@ -16,7 +16,7 @@ import type {
 const connectionString = process.env.EDUMANAGER_POSTGRES_TEST_URL;
 
 function quoteIdentifier(value: string): string {
-  return \`"\${value.replaceAll('"', '""')}"\`;
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function createRunner(pool: Pool, requiredTables: readonly string[]) {
@@ -34,9 +34,9 @@ function createRunner(pool: Pool, requiredTables: readonly string[]) {
 
 function context(schoolId: string): TenantRequestContext {
   return {
-    userId: \`user-\${schoolId}\`,
+    userId: `user-${schoolId}`,
     schoolId,
-    membershipId: \`membership-\${schoolId}\`,
+    membershipId: `membership-${schoolId}`,
     role: "teacher",
   };
 }
@@ -48,12 +48,12 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
   if (!connectionString) return;
 
   const suffix = randomBytes(6).toString("hex");
-  const schema = \`edumanager_runner_\${suffix}\`;
-  const runtimeRole = \`edumanager_runtime_\${suffix}\`;
-  const ownerRole = \`edumanager_owner_\${suffix}\`;
+  const schema = `edumanager_runner_${suffix}`;
+  const runtimeRole = `edumanager_runtime_${suffix}`;
+  const ownerRole = `edumanager_owner_${suffix}`;
   const password = randomBytes(24).toString("hex");
-  const qualifiedTable = \`\${schema}.school_records\`;
-  const table = \`\${quoteIdentifier(schema)}.\${quoteIdentifier("school_records")}\`;
+  const qualifiedTable = `${schema}.school_records`;
+  const table = `${quoteIdentifier(schema)}.${quoteIdentifier("school_records")}`;
   const requiredTables = [qualifiedTable];
   const runtimeUrl = new URL(connectionString);
   runtimeUrl.username = runtimeRole;
@@ -67,39 +67,39 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
 
   try {
     await admin.query(
-      \`CREATE ROLE \${quoteIdentifier(runtimeRole)} LOGIN PASSWORD '\${password}' NOSUPERUSER NOBYPASSRLS\`,
+      `CREATE ROLE ${quoteIdentifier(runtimeRole)} LOGIN PASSWORD '${password}' NOSUPERUSER NOBYPASSRLS`,
     );
     await admin.query(
-      \`CREATE ROLE \${quoteIdentifier(ownerRole)} NOLOGIN NOSUPERUSER NOBYPASSRLS\`,
+      `CREATE ROLE ${quoteIdentifier(ownerRole)} NOLOGIN NOSUPERUSER NOBYPASSRLS`,
     );
-    await admin.query(\`CREATE SCHEMA \${quoteIdentifier(schema)}\`);
+    await admin.query(`CREATE SCHEMA ${quoteIdentifier(schema)}`);
     await admin.query(
-      \`CREATE TABLE \${table} (
+      `CREATE TABLE ${table} (
         id text PRIMARY KEY,
         school_id text NOT NULL,
         payload text NOT NULL
-      )\`,
+      )`,
     );
     await admin.query(
-      \`ALTER TABLE \${table} OWNER TO \${quoteIdentifier(ownerRole)}\`,
+      `ALTER TABLE ${table} OWNER TO ${quoteIdentifier(ownerRole)}`,
     );
-    await admin.query(\`ALTER TABLE \${table} ENABLE ROW LEVEL SECURITY\`);
-    await admin.query(\`ALTER TABLE \${table} FORCE ROW LEVEL SECURITY\`);
+    await admin.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+    await admin.query(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
     await admin.query(
-      \`CREATE POLICY school_scope ON \${table}
-       FOR ALL TO \${quoteIdentifier(runtimeRole)}
+      `CREATE POLICY school_scope ON ${table}
+       FOR ALL TO ${quoteIdentifier(runtimeRole)}
        USING (school_id = current_setting('app.school_id', true))
-       WITH CHECK (school_id = current_setting('app.school_id', true))\`,
+       WITH CHECK (school_id = current_setting('app.school_id', true))`,
     );
     await admin.query(
-      \`GRANT USAGE ON SCHEMA \${quoteIdentifier(schema)} TO \${quoteIdentifier(runtimeRole)}\`,
+      `GRANT USAGE ON SCHEMA ${quoteIdentifier(schema)} TO ${quoteIdentifier(runtimeRole)}`,
     );
     await admin.query(
-      \`GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE \${table} TO \${quoteIdentifier(runtimeRole)}\`,
+      `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE ${table} TO ${quoteIdentifier(runtimeRole)}`,
     );
     await admin.query(
-      \`INSERT INTO \${table} (id, school_id, payload)
-       VALUES ($1, $2, $3), ($4, $5, $6)\`,
+      `INSERT INTO ${table} (id, school_id, payload)
+       VALUES ($1, $2, $3), ($4, $5, $6)`,
       ["record-a", "school-a", "A", "record-b", "school-b", "B"],
     );
 
@@ -142,14 +142,14 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
         await waitForBothConnections();
 
         const visible = await executor.query(
-          \`SELECT id, school_id FROM \${table} ORDER BY id\`,
+          `SELECT id, school_id FROM ${table} ORDER BY id`,
         ) as { rows: Array<{ id: string; school_id: string }> };
         const update = await executor.query(
-          \`UPDATE \${table} SET payload = 'changed' WHERE id = $1\`,
+          `UPDATE ${table} SET payload = 'changed' WHERE id = $1`,
           [otherRecordId],
         ) as { rowCount: number | null };
         const deletion = await executor.query(
-          \`DELETE FROM \${table} WHERE id = $1\`,
+          `DELETE FROM ${table} WHERE id = $1`,
           [otherRecordId],
         ) as { rowCount: number | null };
 
@@ -182,7 +182,7 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     await assert.rejects(
       runner.run(context("school-a"), async (executor) => {
         await executor.query(
-          \`INSERT INTO \${table} (id, school_id, payload) VALUES ($1, $2, $3)\`,
+          `INSERT INTO ${table} (id, school_id, payload) VALUES ($1, $2, $3)`,
           ["forged-record", "school-b", "must-not-commit"],
         );
       }),
@@ -193,13 +193,13 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     );
 
     const forgedRecord = await admin.query(
-      \`SELECT id FROM \${table} WHERE id = $1\`,
+      `SELECT id FROM ${table} WHERE id = $1`,
       ["forged-record"],
     );
     assert.equal(forgedRecord.rowCount, 0);
 
     const unchangedOtherRecord = await admin.query(
-      \`SELECT payload FROM \${table} WHERE id = $1\`,
+      `SELECT payload FROM ${table} WHERE id = $1`,
       ["record-b"],
     );
     assert.equal(unchangedOtherRecord.rows[0]?.payload, "B");
@@ -208,7 +208,7 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     safePool = undefined;
 
     await admin.query(
-      \`GRANT \${quoteIdentifier(ownerRole)} TO \${quoteIdentifier(runtimeRole)} WITH SET TRUE, INHERIT FALSE\`,
+      `GRANT ${quoteIdentifier(ownerRole)} TO ${quoteIdentifier(runtimeRole)} WITH SET TRUE, INHERIT FALSE`,
     );
     unsafePool = new Pool({
       connectionString: runtimeUrl.toString(),
@@ -234,13 +234,13 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     await safePool?.end().catch(() => undefined);
     await unsafePool?.end().catch(() => undefined);
     await admin.query(
-      \`REVOKE \${quoteIdentifier(ownerRole)} FROM \${quoteIdentifier(runtimeRole)}\`,
+      `REVOKE ${quoteIdentifier(ownerRole)} FROM ${quoteIdentifier(runtimeRole)}`,
     ).catch(() => undefined);
     await admin.query(
-      \`DROP SCHEMA IF EXISTS \${quoteIdentifier(schema)} CASCADE\`,
+      `DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE`,
     ).catch(() => undefined);
     await admin.query(
-      \`DROP ROLE IF EXISTS \${quoteIdentifier(runtimeRole)}, \${quoteIdentifier(ownerRole)}\`,
+      `DROP ROLE IF EXISTS ${quoteIdentifier(runtimeRole)}, ${quoteIdentifier(ownerRole)}`,
     ).catch(() => undefined);
     await admin.end();
   }
