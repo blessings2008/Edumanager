@@ -204,6 +204,47 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     );
     assert.equal(unchangedOtherRecord.rows[0]?.payload, "B");
 
+    // Tenant identifiers are transaction-local. After both successful
+    // commits and the rejected INSERT rollback, neither pooled connection
+    // may retain a previous school's identity or scope.
+    const pooledClients = await Promise.all([
+      safePool.connect(),
+      safePool.connect(),
+    ]);
+    try {
+      const idleConnectionSettings = await Promise.all(
+        pooledClients.map(async (client) => {
+          const result = await client.query<{
+            pid: number;
+            user_id: string | null;
+            school_id: string | null;
+            membership_id: string | null;
+          }>(`
+            SELECT
+              pg_backend_pid() AS pid,
+              current_setting('app.user_id', true) AS user_id,
+              current_setting('app.school_id', true) AS school_id,
+              current_setting('app.membership_id', true) AS membership_id
+          `);
+          assert.equal(result.rows.length, 1);
+          return result.rows[0]!;
+        }),
+      );
+
+      assert.deepEqual(
+        idleConnectionSettings.map((settings) => settings.pid).sort((left, right) => left - right),
+        [schoolA.backendPid, schoolB.backendPid].sort((left, right) => left - right),
+        "the pool should return the same two physical connections",
+      );
+      for (const settings of idleConnectionSettings) {
+        assert.ok(settings.user_id === null || settings.user_id === "");
+        assert.ok(settings.school_id === null || settings.school_id === "");
+        assert.ok(settings.membership_id === null || settings.membership_id === "");
+      }
+    } finally {
+      for (const client of pooledClients) client.release();
+    }
+
     await safePool.end();
     safePool = undefined;
 
