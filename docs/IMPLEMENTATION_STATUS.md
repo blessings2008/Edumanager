@@ -72,6 +72,13 @@
 - An unsafe, malformed or uninspectable connection is released with an error before `BEGIN`; the repository callback is not invoked. The configured tenant-table list and pool checkout method are snapshotted when the runner is created.
 - This verifies every connection when it is checked out for tenant work; it does not proactively enumerate idle pool connections. It adds one catalog inspection query per tenant transaction. The server entry point still has no configured runtime pool or credentials, and RLS policy correctness and live cross-school isolation remain pending.
 
+
+### Disposable PostgreSQL 17 integration coverage for verified tenant transactions
+- Added a test-only integration suite for the per-checkout transaction runner using a temporary PostgreSQL 17 CI service and a development-only node-postgres dependency.
+- The suite creates disposable runtime/owner roles, a temporary school-record table and an explicit test RLS policy. It exercises two concurrent physical pool connections and checks that each school sees only its own rows, cross-school updates/deletes affect no rows, cross-school inserts are rejected, and a runtime role that can assume the table owner is rejected before repository work.
+- CI supplies `EDUMANAGER_POSTGRES_TEST_URL` from the disposable service. The test does not connect to the Supabase project or use production credentials/data.
+- This covers the runner against a test-owned schema and policy only. It does not configure the API server, verify the project's production RLS policies/grants, or complete runtime tenant isolation.
+
 ### Remaining integration blockers
 The live database still has only the initial migration applied, so its persisted role/status vocabulary does not yet fully match the updated shared contracts. The follow-up migration must be reviewed and explicitly applied before the membership reader can safely be wired. The membership reader, transaction helper and PostgreSQL 17 role inspector have no configured runtime query executor, pool or credential; the inspector has not examined a live role and is not wired into startup. It reports catalog role/table capabilities but does not validate RLS policy expressions, grants or actual cross-tenant behavior. Authentication architecture, secure identity mapping, tenant-scoped database access, RLS policies and cross-tenant integration tests also remain pending.
 

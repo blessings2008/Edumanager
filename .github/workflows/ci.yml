@@ -2,10 +2,10 @@ name: EduManager CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "security/**"]
+    branches: [main, "feat/**", "fix/**", "security/**", "test/**"]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main, "feat/**", "fix/**", "security/**"]
+    branches: [main, "feat/**", "fix/**", "security/**", "test/**"]
 
 permissions:
   contents: read
@@ -13,6 +13,22 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: edumanager_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d edumanager_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      EDUMANAGER_POSTGRES_TEST_URL: postgresql://postgres:postgres@localhost:5432/edumanager_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

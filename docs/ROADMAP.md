@@ -39,6 +39,10 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 
 **Verified per-checkout PostgreSQL connection guard (not runtime wiring):** a provider-specific runner now inspects each physical connection immediately after pool checkout and before tenant work, using the same captured query/release methods for inspection and the transaction. Unsafe or unknown leases are discarded before transaction start. This is per-checkout verification, not proactive inspection of idle connections, and it adds one catalog query per tenant transaction. The runner is not configured in the server entry point; the Phase 1 startup, least-privilege role, RLS and two-school isolation exit criteria remain pending.
 
+
+
+**Disposable PostgreSQL 17 runner integration coverage (test-only):** an opt-in CI integration test now exercises the verified transaction runner with temporary roles, a test-owned RLS policy and two concurrent physical pool connections. It checks school-scoped reads, cross-school update/delete filtering, cross-school insert rejection and rejection of a runtime role that can assume the table owner. The CI workflow provisions an ephemeral PostgreSQL 17 service for this test. This does not configure the server entry point or verify the Supabase project's policies/grants; runtime wiring and Phase 1 isolation exit criteria remain pending.
+
 ## Phase 2 — School administration
 - [ ] School profile and branding.
 - [ ] Academic years and terms.
