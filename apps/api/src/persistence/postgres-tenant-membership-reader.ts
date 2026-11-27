@@ -64,40 +64,82 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * for this narrowly scoped lookup. Do not expose it to the browser or reuse a
  * privileged/bypass-RLS connection for tenant-owned application queries.
  */
+function snapshotQueryExecutor(
+  executor: PostgresQueryExecutor,
+): (sql: string, values: unknown[]) => Promise<{ rows: unknown[] }> {
+  let query: PostgresQueryExecutor["query"];
+  try {
+    query = executor.query;
+  } catch {
+    throw new TypeError("A PostgreSQL membership query executor is required.");
+  }
+
+  if (typeof query !== "function") {
+    throw new TypeError("A PostgreSQL membership query executor is required.");
+  }
+
+  // Capture the operation once but preserve the executor as its receiver.
+  return (sql, values) => query.call(executor, sql, values);
+}
+
 export function createPostgresTenantMembershipReader(
   executor: PostgresQueryExecutor,
 ): PostgresTenantMembershipReader {
+  const query = snapshotQueryExecutor(executor);
+
   return {
     async loadTenantMembership(input) {
-      if (!isCanonicalUuid(input.authenticatedUserId)
-        || !isCanonicalUuid(input.requestedSchoolId)) return null;
+      let authenticatedUserId: unknown;
+      let requestedSchoolId: unknown;
+      try {
+        authenticatedUserId = input.authenticatedUserId;
+        requestedSchoolId = input.requestedSchoolId;
+      } catch {
+        return null;
+      }
 
-      const result = await executor.query(POSTGRES_TENANT_MEMBERSHIP_SQL, [
-        input.authenticatedUserId,
-        input.requestedSchoolId,
+      if (!isCanonicalUuid(authenticatedUserId)
+        || !isCanonicalUuid(requestedSchoolId)) return null;
+
+      const result = await query(POSTGRES_TENANT_MEMBERSHIP_SQL, [
+        authenticatedUserId,
+        requestedSchoolId,
       ]);
 
-      if (!result || !Array.isArray(result.rows) || result.rows.length !== 1) return null;
-      const row = result.rows[0];
-      if (!isRecord(row)) return null;
+      try {
+        if (!isRecord(result)) return null;
+        const rows = result.rows;
+        if (!Array.isArray(rows) || rows.length !== 1) return null;
 
-      return {
-        user: {
-          id: row.user_id,
-          status: row.user_status,
-        },
-        school: {
-          id: row.school_id,
-          status: row.school_status,
-        },
-        membership: {
-          id: row.membership_id,
-          userId: row.membership_user_id,
-          schoolId: row.membership_school_id,
-          role: row.membership_role,
-          status: row.membership_status,
-        },
-      };
+        const row = rows[0];
+        if (!isRecord(row)) return null;
+
+        // Detach every persisted value once before returning the snapshot.
+        const userId = row.user_id;
+        const userStatus = row.user_status;
+        const schoolId = row.school_id;
+        const schoolStatus = row.school_status;
+        const membershipId = row.membership_id;
+        const membershipUserId = row.membership_user_id;
+        const membershipSchoolId = row.membership_school_id;
+        const membershipRole = row.membership_role;
+        const membershipStatus = row.membership_status;
+
+        return {
+          user: { id: userId, status: userStatus },
+          school: { id: schoolId, status: schoolStatus },
+          membership: {
+            id: membershipId,
+            userId: membershipUserId,
+            schoolId: membershipSchoolId,
+            role: membershipRole,
+            status: membershipStatus,
+          },
+        };
+      } catch {
+        // Accessor-backed or malformed driver results fail closed.
+        return null;
+      }
     },
   };
 }
