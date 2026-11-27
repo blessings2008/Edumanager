@@ -75,9 +75,9 @@
 
 ### Verified disposable PostgreSQL 17 integration coverage for verified tenant transactions
 - Added a test-only integration suite for the per-checkout transaction runner using a temporary PostgreSQL 17 CI service and a development-only node-postgres dependency.
-- The suite creates disposable runtime/owner roles, a temporary school-record table and an explicit test RLS policy. It exercises two concurrent physical pool connections and checks that each school sees only its own rows, cross-school updates/deletes affect no rows, cross-school inserts are rejected, and a runtime role that can assume the table owner is rejected before repository work. After the successful commits and the rejected cross-school INSERT rollback, it also confirms that the user, school and membership transaction-local settings are absent from both reused pool connections.
+- The suite creates disposable runtime/owner roles, a temporary school-record table and an explicit test RLS policy. It exercises two concurrent physical pool connections and checks that each school sees only its own rows, cross-school updates/deletes affect no rows, cross-school inserts are rejected, and a runtime role that can assume the table owner is rejected before repository work. After successful commits, a rejected cross-school INSERT rollback, and a repository callback failure rollback, it also confirms that the user, school and membership transaction-local settings are absent from both reused pool connections.
 - CI supplies `EDUMANAGER_POSTGRES_TEST_URL` from the disposable service. The test does not connect to the Supabase project or use production credentials/data.
-- The GitHub Actions PR workflow passed on 2026-11-26: 110 tests passed, zero failed and zero skipped; the PostgreSQL 17 integration test executed rather than being skipped.
+- The GitHub Actions PR workflow passed on 2026-11-27: 110 tests passed, zero failed and zero skipped; the PostgreSQL 17 integration test executed rather than being skipped, including repository callback-failure rollback and context cleanup.
 - This covers the runner against a test-owned schema and policy only. It does not configure the API server, verify the project's production RLS policies/grants, or complete runtime tenant isolation.
 
 ### Remaining integration blockers

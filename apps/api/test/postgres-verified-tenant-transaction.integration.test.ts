@@ -204,8 +204,39 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
     );
     assert.equal(unchangedOtherRecord.rows[0]?.payload, "B");
 
-    // Tenant identifiers are transaction-local. After both successful
-    // commits and the rejected INSERT rollback, neither pooled connection
+    const callbackFailure = new Error("expected repository callback failure");
+    let failedCallbackBackendPid: number | undefined;
+    await assert.rejects(
+      runner.run(context("school-a"), async (executor) => {
+        const activeContext = await executor.query(`
+          SELECT
+            pg_backend_pid() AS pid,
+            current_setting('app.user_id', true) AS user_id,
+            current_setting('app.school_id', true) AS school_id,
+            current_setting('app.membership_id', true) AS membership_id
+        `) as {
+          rows: Array<{
+            pid: number | string;
+            user_id: string | null;
+            school_id: string | null;
+            membership_id: string | null;
+          }>;
+        };
+        assert.equal(activeContext.rows.length, 1);
+        const installed = activeContext.rows[0]!;
+        failedCallbackBackendPid = Number(installed.pid);
+        assert.equal(installed.user_id, "user-school-a");
+        assert.equal(installed.school_id, "school-a");
+        assert.equal(installed.membership_id, "membership-school-a");
+        throw callbackFailure;
+      }),
+      (error: unknown) => error === callbackFailure,
+    );
+    assert.ok(failedCallbackBackendPid !== undefined);
+
+    // Tenant identifiers are transaction-local. After successful commits,
+    // a rejected INSERT rollback, and a repository callback failure rollback,
+    // neither pooled connection
     // may retain a previous school's identity or scope.
     const pooledClients = await Promise.all([
       safePool.connect(),
@@ -235,6 +266,10 @@ test("PostgreSQL 17 verified tenant runner isolates concurrent schools on separa
         idleConnectionSettings.map((settings) => settings.pid).sort((left, right) => left - right),
         [schoolA.backendPid, schoolB.backendPid].sort((left, right) => left - right),
         "the pool should return the same two physical connections",
+      );
+      assert.ok(
+        idleConnectionSettings.some((settings) => settings.pid === failedCallbackBackendPid),
+        "the callback-failure rollback should return its original physical connection",
       );
       for (const settings of idleConnectionSettings) {
         assert.ok(settings.user_id === null || settings.user_id === "");
