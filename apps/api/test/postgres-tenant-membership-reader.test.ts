@@ -57,6 +57,99 @@ test("PostgreSQL membership reader returns only persisted identity fields", asyn
   assert.equal(calls[0].sql.includes(schoolId), false);
 });
 
+test("PostgreSQL membership reader snapshots request identifiers exactly once", async () => {
+  const otherUserId = "b0000000-0000-4000-8000-000000000001";
+  const otherSchoolId = "00000000-0000-4000-8000-000000000004";
+  let userIdReads = 0;
+  let schoolIdReads = 0;
+  let queryValues: unknown[] | undefined;
+  const reader = createPostgresTenantMembershipReader({
+    query: async (_sql, values) => {
+      queryValues = values;
+      return { rows: [persistedRow] };
+    },
+  });
+
+  const input = {
+    get authenticatedUserId() {
+      userIdReads += 1;
+      return userIdReads === 1 ? userId : otherUserId;
+    },
+    get requestedSchoolId() {
+      schoolIdReads += 1;
+      return schoolIdReads === 1 ? schoolId : otherSchoolId;
+    },
+  };
+
+  assert.deepEqual(await reader.loadTenantMembership(input), {
+    user: { id: userId, status: "active" },
+    school: { id: schoolId, status: "active" },
+    membership: {
+      id: persistedRow.membership_id,
+      userId,
+      schoolId,
+      role: "teacher",
+      status: "active",
+    },
+  });
+  assert.equal(userIdReads, 1);
+  assert.equal(schoolIdReads, 1);
+  assert.deepEqual(queryValues, [userId, schoolId]);
+});
+
+test("PostgreSQL membership reader captures its query method and preserves the executor receiver", async () => {
+  const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const executor = {
+    query(sql: string, values: unknown[]) {
+      assert.equal(this, executor);
+      calls.push({ sql, values });
+      return Promise.resolve({ rows: [persistedRow] });
+    },
+  };
+  const reader = createPostgresTenantMembershipReader(executor);
+  executor.query = async () => {
+    throw new Error("replacement query method must not be used");
+  };
+
+  assert.ok(await reader.loadTenantMembership({
+    authenticatedUserId: userId,
+    requestedSchoolId: schoolId,
+  }));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].sql, POSTGRES_TENANT_MEMBERSHIP_SQL);
+  assert.deepEqual(calls[0].values, [userId, schoolId]);
+});
+
+test("PostgreSQL membership reader snapshots result rows once and rejects throwing accessors", async () => {
+  let rowCollectionReads = 0;
+  const reader = createPostgresTenantMembershipReader({
+    query: async () => ({
+      get rows() {
+        rowCollectionReads += 1;
+        return rowCollectionReads === 1 ? [persistedRow] : [];
+      },
+    }),
+  });
+
+  assert.ok(await reader.loadTenantMembership({
+    authenticatedUserId: userId,
+    requestedSchoolId: schoolId,
+  }));
+  assert.equal(rowCollectionReads, 1);
+
+  const malformedReader = createPostgresTenantMembershipReader({
+    query: async () => ({
+      get rows(): unknown[] {
+        throw new Error("private driver result detail");
+      },
+    }),
+  });
+  assert.equal(await malformedReader.loadTenantMembership({
+    authenticatedUserId: userId,
+    requestedSchoolId: schoolId,
+  }), null);
+});
+
 test("PostgreSQL membership reader rejects malformed UUIDs without querying", async () => {
   let queryCount = 0;
   const reader = createPostgresTenantMembershipReader({
