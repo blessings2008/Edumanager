@@ -58,6 +58,7 @@
 - Shared role/status unions are now exported from one source, including the distinct `school_owner` role and revoked membership state.
 - Static schema-contract tests compare the SQL constraint values with the shared TypeScript constants.
 - The migration is repository-only and has **not** been applied to Supabase. It includes a guard that refuses to guess domain kinds if domain rows already exist.
+- A repository-level, read-only review is recorded in [SCHEMA_ALIGNMENT_MIGRATION_REVIEW.md](./SCHEMA_ALIGNMENT_MIGRATION_REVIEW.md). It confirms the checked-in value mappings and non-destructive intent; live preflight, clean-database execution, migration-runner atomicity verification and founder approval remain pending.
 
 ### Deliberately not implemented yet
 - Authentication provider, credential/session lifecycle and application-user identity mapping.
