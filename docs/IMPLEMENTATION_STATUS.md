@@ -117,7 +117,7 @@ Run checks with pnpm test, pnpm typecheck and pnpm build. GitHub Actions must pa
 - Added a dedicated Timetable navigation section with weekday switching, class and teacher filters, lesson search, and read-only lesson detail previews.
 - Added an in-browser lesson creation flow with basic overlapping class, teacher and room checks. These checks are convenience validation only and are not authoritative scheduling controls.
 - All timetable entries and newly added lessons are illustrative browser-session data. Publishing, substitutions, teacher availability, room capacity, persistence, school-scoped authorization and server-side conflict checks remain unimplemented.
-- Pull request #43 is awaiting CI validation; this feature is not merged or deployed.
+- Pull request #43 was merged into `main` at `5742c9fc6e7cc58844615ad18b23039f1a6de6e9`. The workspace remains a client-side preview only; persistence, server-side scheduling validation and announcement delivery are not implemented.
 
 
 ### Frontend expansion — notices and announcements preview
