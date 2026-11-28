@@ -23,6 +23,7 @@ This roadmap is dependency-aware. Dates will be added only after the scope and d
 - [ ] Implement authentication, sessions, and account recovery.
 - [ ] Add role/permission checks and tenant-isolation tests.
 - [ ] Build initial school setup wizard.
+- [x] Complete a repository-level read-only review of the schema-contract alignment migration (see [review](./SCHEMA_ALIGNMENT_MIGRATION_REVIEW.md)); live preflight and clean-database execution remain pending.
 - [ ] Review and apply the schema-contract alignment migration, then verify it against a clean database before runtime integration.
 - [ ] Wire the PostgreSQL 17 runtime-role inspector into fail-closed startup checks, provision and verify a least-privilege runtime role, and confirm the live connection cannot assume privileged or tenant-table-owner roles.
 
