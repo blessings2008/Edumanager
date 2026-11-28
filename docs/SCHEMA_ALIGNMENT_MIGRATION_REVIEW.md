@@ -83,7 +83,7 @@ Also verify the migration-history record and inspect the actual RLS/grant state 
 
 - [ ] Founder confirms the database/provider and explicitly approves the migration.
 - [ ] Current live schema and migration history match the expected initial migration.
-- [ ] Current domain-row count is zero, or every existing hostname has been explicitly classified and a reviewed migration plan is supplied.
+- [ ] Current domain-row count is zero for this migration. If any rows exist, stop and prepare a separate explicit hostname-classification migration for founder review; this migration will abort.
 - [ ] Migration-runner transaction/rollback behavior is verified.
 - [ ] A disposable PostgreSQL 17 database applies the initial migration and then this migration successfully.
 - [ ] Clean-database tests verify the value conversions, defaults, new nullable/required columns and all resulting constraints.
